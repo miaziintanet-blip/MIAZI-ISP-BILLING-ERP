@@ -277,7 +277,7 @@ function customerRow(c) {
     ? '<span class="pill danger">Due / বকেয়া</span>'
     : '<span class="pill">Paid / পরিশোধিত</span>';
   const quickBillButtons = currentPage === "customers" && customerListFilter === "all"
-    ? `<span class="quickBillGroup" style="display:inline-flex;align-items:center;gap:14px;white-space:nowrap;flex-wrap:nowrap"><button type="button" class="quickBillAction" data-bill-action="paid" data-customer-id="${esc(c.id)}">Paid</button><button type="button" class="quickBillAction secondary" data-bill-action="due" data-customer-id="${esc(c.id)}">Due</button></span>`
+    ? `<span class="quickBillGroup" style="display:inline-flex;align-items:center;gap:14px;white-space:nowrap;flex-wrap:nowrap"><button type="button" class="quickBillAction" onclick="return handleQuickBillClick(event, this)" data-bill-action="paid" data-customer-id="${esc(c.id)}">Paid</button><button type="button" class="quickBillAction secondary" onclick="return handleQuickBillClick(event, this)" data-bill-action="due" data-customer-id="${esc(c.id)}">Due</button></span>`
     : "";
   return `<tr data-customer-id="${esc(c.id)}" class="customer-row" style="cursor:pointer">
     <td>${esc(c.name)}</td>
@@ -799,6 +799,61 @@ function renderCustomerRows() {
   const heading = document.querySelector("#customersPage .section h2");
   if (heading) heading.textContent = labels[customerListFilter] + " (" + (customerListFilter === "due" ? filtered.reduce((n,c)=>n + (invoices.some(i=>String(i.customer_id)===String(c.id)) ? invoices.filter(i=>String(i.customer_id)===String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount))>0).length : 1),0) : filtered.length) + ")";
 }
+async function handleQuickBillClick(event, quickButton) {
+  event.preventDefault();
+  event.stopPropagation();
+  const customerId = quickButton.dataset.customerId;
+  const customer = customers.find(c => String(c.id) === String(customerId));
+  if (!customer) return alert("গ্রাহক পাওয়া যায়নি।");
+  const openInvoices = invoices.filter(i => String(i.customer_id) === String(customerId));
+  const latestInvoice = [...openInvoices].sort((a,b) =>
+    String(b.billing_month).localeCompare(String(a.billing_month))
+  )[0];
+  if (!latestInvoice) {
+    alert("এই গ্রাহকের কোনো বিল তৈরি হয়নি। আগে Invoices থেকে মাসের বিল তৈরি করুন।");
+    return false;
+  }
+  const markPaid = quickButton.dataset.billAction === "paid";
+  const oldPaidAmount = Number(latestInvoice.paid_amount || 0);
+  const billAmount = Number(latestInvoice.amount || 0);
+  if (markPaid && oldPaidAmount >= billAmount) {
+    alert("সর্বশেষ মাসের বিল ইতিমধ্যে Paid আছে。");
+    return false;
+  }
+  if (!markPaid && oldPaidAmount <= 0) {
+    alert("সর্বশেষ মাসের বিল ইতিমধ্যে Due আছে।");
+    return false;
+  }
+  const result = await sb.from("invoices").update({
+    paid_amount: markPaid ? billAmount : 0,
+    status: markPaid ? "paid" : "unpaid"
+  }).eq("id", latestInvoice.id);
+  if (result.error) {
+    alert("বিলের অবস্থা পরিবর্তন হয়নি: " + result.error.message);
+    return false;
+  }
+  if (markPaid) {
+    const remaining = Math.max(0, billAmount - oldPaidAmount);
+    const payment = await sb.from("payments").insert({
+      customer_id: customerId,
+      amount: remaining,
+      method: "Cash",
+      note: "Paid directly from Total Customers"
+    });
+    if (payment.error) {
+      await sb.from("invoices").update({
+        paid_amount: oldPaidAmount,
+        status: oldPaidAmount >= billAmount ? "paid" : "unpaid"
+      }).eq("id", latestInvoice.id);
+      alert("পেমেন্ট সংরক্ষণ হয়নি, তাই বিলের আগের অবস্থা ফিরিয়ে দেওয়া হয়েছে: " + payment.error.message);
+      return false;
+    }
+  }
+  await loadAll();
+  alert(markPaid ? "সর্বশেষ তৈরি বিল Paid হয়েছে।" : "সর্বশেষ তৈরি বিল Due হয়েছে। পেমেন্টের পুরোনো ইতিহাস মুছে ফেলা হয়নি।");
+  return false;
+}
+
 $("customerRows").addEventListener("click", async e => {
   const quickButton = e.target.closest(".quickBillAction");
   if (quickButton) {
