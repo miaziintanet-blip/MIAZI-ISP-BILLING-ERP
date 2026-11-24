@@ -164,6 +164,7 @@ async function init() {
 
   setConnectionDateDefault();
   await loadAll();
+  startErpDueReminderChecks();
 }
 
 async function loadAll() {
@@ -605,9 +606,71 @@ function customerHasDue(c) {
   return Number(c.due_amount || 0) > 0 ||
     customerInvoices.some(i => Math.max(0, Number(i.amount) - Number(i.paid_amount)) > 0);
 }
+
 function customerHasCollected(c) {
   return payments.some(p => String(p.customer_id) === String(c.id) && Number(p.amount) > 0);
 }
+
+// Month-end due reminder. It runs while the ERP page is open.
+let erpDueReminderTimer = null;
+function dhakaClockParts() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone:"Asia/Dhaka", year:"numeric", month:"2-digit", day:"2-digit",
+    hour:"2-digit", minute:"2-digit", hourCycle:"h23"
+  }).formatToParts(new Date());
+  return Object.fromEntries(parts.filter(p => p.type !== "literal").map(p => [p.type, Number(p.value)]));
+}
+function updateErpReminderStatus(message) {
+  const el = $("erpReminderStatus");
+  if (el) el.textContent = message;
+}
+function checkMonthEndDueReminder() {
+  if (localStorage.getItem("miazi_month_end_due_reminder") !== "on") return;
+  const t = dhakaClockParts();
+  const lastDay = new Date(t.year, t.month, 0).getDate();
+  if (t.day !== lastDay || t.hour < 19) return;
+  const monthKey = String(t.year) + "-" + String(t.month).padStart(2,"0");
+  if (localStorage.getItem("miazi_month_end_due_reminder_sent") === monthKey) return;
+  const dueCount = customers.filter(customerHasDue).length;
+  localStorage.setItem("miazi_month_end_due_reminder_sent", monthKey);
+  const notification = new Notification("MIAZI ERP — মাসশেষ Due রিপোর্ট", {
+    body:"এই মাসে বকেয়া গ্রাহক: " + dueCount + " জন। Due Customer তালিকা দেখতে চাপ দিন।",
+    tag:"miazi-month-end-due-" + monthKey
+  });
+  notification.onclick = () => {
+    window.focus();
+    openCustomerList("due");
+    notification.close();
+  };
+  updateErpReminderStatus("চালু আছে — এই মাসের বকেয়া গ্রাহক: " + dueCount + " জনের রিমাইন্ডার পাঠানো হয়েছে।");
+}
+async function enableErpDueReminder() {
+  if (!("Notification" in window)) {
+    updateErpReminderStatus("এই ব্রাউজারে নোটিফিকেশন সমর্থন নেই।");
+    return;
+  }
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    updateErpReminderStatus("নোটিফিকেশন অনুমতি দেওয়া হয়নি। ব্রাউজার Settings থেকে অনুমতি দিন।");
+    return;
+  }
+  localStorage.setItem("miazi_month_end_due_reminder", "on");
+  updateErpReminderStatus("চালু হয়েছে। সন্ধ্যা ৭টার সময় ERP খোলা থাকলে নোটিফিকেশন আসবে।");
+  checkMonthEndDueReminder();
+}
+$("enableErpDueReminder").onclick = enableErpDueReminder;
+function startErpDueReminderChecks() {
+  if (erpDueReminderTimer) clearInterval(erpDueReminderTimer);
+  if (localStorage.getItem("miazi_month_end_due_reminder") === "on") {
+    updateErpReminderStatus("চালু আছে। মাসের শেষ দিন সন্ধ্যা ৭টার সময় ERP খোলা রাখুন।");
+  } else {
+    updateErpReminderStatus("এখনো চালু করা হয়নি। একবার নিচের বাটনে চাপ দিন।");
+  }
+  checkMonthEndDueReminder();
+  erpDueReminderTimer = setInterval(checkMonthEndDueReminder, 60000);
+  window.addEventListener("focus", checkMonthEndDueReminder);
+}
+
 function formatBillingMonth(value) {
   if (!value) return "—";
   const raw = String(value).slice(0, 7);
