@@ -5,6 +5,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_DbGYxusmvOLwlLzEC8D4OQ_KX9o_Srj";
 let sb = null;
 let currentPage = "dashboard";
 let customerListFilter = "all";
+let activeBillFilter = "all";
 let customers = [], packages = [], payments = [], invoices = [], pops = [], areas = [], boxes = [], tickets = [], expenses = [];
 let lang = "both";
 let importRows = [], importReport = [];
@@ -98,6 +99,7 @@ document.querySelectorAll('[data-action="import-customer"]').forEach(b => {
 
 function openCustomerList(filter) {
   customerListFilter = filter;
+  activeBillFilter = "all";
   $("customerSearch").value = "";
   renderCustomerRows();
   showPage("customers");
@@ -614,12 +616,23 @@ function formatBillingMonth(value) {
   return date.toLocaleDateString("bn-BD", {month:"long", year:"numeric"});
 }
 function renderCustomerRows() {
+  const activeFilters = $("activeBillFilters");
+  if (activeFilters) {
+    activeFilters.classList.toggle("hidden", customerListFilter !== "active");
+    [["activePaidFilter","paid"],["activeDueFilter","due"],["activeAllFilter","all"]].forEach(([id,value]) => {
+      const button = $(id);
+      button.classList.toggle("active", activeBillFilter === value);
+      button.setAttribute("aria-pressed", activeBillFilter === value ? "true" : "false");
+    });
+  }
   const customerSections = document.querySelectorAll("#customersPage > .section");
   if (customerSections[1]) customerSections[1].classList.toggle("hidden", customerListFilter === "due");
   if (customerSections[2]) customerSections[2].classList.toggle("hidden", customerListFilter === "due");
   const q = ($("customerSearch").value || "").toLowerCase().trim();
   const filtered = customers.filter(c => {
     if (customerListFilter === "active" && c.status !== "active") return false;
+    if (customerListFilter === "active" && activeBillFilter === "due" && !customerHasDue(c)) return false;
+    if (customerListFilter === "active" && activeBillFilter === "paid" && customerHasDue(c)) return false;
     if (customerListFilter === "due" && !customerHasDue(c)) return false;
     if (customerListFilter === "collected" && !customerHasCollected(c)) return false;
     return [c.name,c.phone,c.username,c.mac_address,c.connection_date,c.customer_code,c.address]
@@ -660,6 +673,14 @@ function renderCustomerRows() {
   if (heading) heading.textContent = "Customer List / " + labels[customerListFilter] + " (" + (customerListFilter === "due" ? filtered.reduce((n,c)=>n + (invoices.some(i=>String(i.customer_id)===String(c.id)) ? invoices.filter(i=>String(i.customer_id)===String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount))>0).length : 1),0) : filtered.length) + ")";
 }
 $("customerSearch").oninput = renderCustomerRows;
+
+function setActiveBillFilter(filter) {
+  activeBillFilter = filter;
+  renderCustomerRows();
+}
+$("activePaidFilter").onclick = () => setActiveBillFilter("paid");
+$("activeDueFilter").onclick = () => setActiveBillFilter("due");
+$("activeAllFilter").onclick = () => setActiveBillFilter("all");
 
 
 // NETWORK, BILLING, SUPPORT AND EXPENSES
