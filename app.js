@@ -252,7 +252,12 @@ async function loadExpenses() {
 
 function customerRow(c) {
   const due = customerHasDue(c);
-  const billStatus = c.status === "active" ? (due ? "due" : "paid") : "inactive";
+  const customerStatus = c.status === "active"
+    ? '<span class="pill">Active / চালু</span>'
+    : '<span class="pill danger">Inactive / বন্ধ</span>';
+  const billStatus = c.status !== "active" ? ""
+    : due ? '<span class="pill danger">Due / বকেয়া</span>'
+    : '<span class="pill">Paid / পরিশোধিত</span>';
   return `<tr data-customer-id="${esc(c.id)}" class="customer-row" style="cursor:pointer">
     <td>${esc(c.name)}</td>
     <td>${esc(c.phone)}</td>
@@ -260,10 +265,7 @@ function customerRow(c) {
     <td>${esc(c.mac_address || "—")}</td>
     <td>${esc(c.connection_date || "—")}</td>
     <td>${money(c.monthly_fee)}</td>
-    <td><div class="actions" style="gap:5px;flex-wrap:nowrap">
-      <button type="button" class="secondary setCustomerActiveBtn" data-set-customer-active="${esc(c.id)}" aria-pressed="${c.status === "active"}" style="padding:5px 9px;min-width:58px;opacity:${c.status === "active" ? "1" : ".8"};${c.status === "active" ? "border-color:#16a34a;color:#16a34a;font-weight:700;" : ""}">Paid</button>
-      <button type="button" class="secondary" disabled aria-pressed="${billStatus === "due"}" style="padding:5px 9px;min-width:58px;opacity:${billStatus === "due" ? "1" : ".45"};${billStatus === "due" ? "border-color:#dc2626;color:#dc2626;font-weight:700;" : ""}">Due</button>
-    </div>${billStatus === "inactive" ? '<small class="muted">Inactive</small>' : ""}</td>
+    <td><div class="actions" style="gap:5px;flex-wrap:wrap">${customerStatus}${billStatus}</div></td>
   </tr>`;
 }
 
@@ -704,7 +706,7 @@ function renderCustomerRows() {
   const isSeparateCustomerPage = ["activeCustomers","dueCustomers","paidCustomers"].includes(currentPage);
   const activeFilters = $("activeBillFilters");
   if (activeFilters) {
-    activeFilters.classList.toggle("hidden", isSeparateCustomerPage);
+    activeFilters.classList.add("hidden");
     const activeCount = customers.filter(c => c.status === "active").length;
     const dueCount = customers.filter(customerHasDue).length;
     const paidCount = customers.filter(c => c.status === "active" && !customerHasDue(c)).length;
