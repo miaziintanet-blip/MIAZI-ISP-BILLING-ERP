@@ -243,7 +243,7 @@ function customerRow(c) {
     <td>${esc(c.connection_date || "—")}</td>
     <td>${money(c.monthly_fee)}</td>
     <td><div class="actions" style="gap:5px;flex-wrap:nowrap">
-      <button type="button" class="secondary" disabled aria-pressed="${billStatus === "paid"}" style="padding:5px 9px;min-width:58px;opacity:${billStatus === "paid" ? "1" : ".45"};${billStatus === "paid" ? "border-color:#16a34a;color:#16a34a;font-weight:700;" : ""}">Paid</button>
+      <button type="button" class="secondary setCustomerActiveBtn" data-set-customer-active="${esc(c.id)}" aria-pressed="${c.status === "active"}" style="padding:5px 9px;min-width:58px;opacity:${billStatus === "paid" ? "1" : ".45"};${billStatus === "paid" ? "border-color:#16a34a;color:#16a34a;font-weight:700;" : ""}">Paid</button>
       <button type="button" class="secondary" disabled aria-pressed="${billStatus === "due"}" style="padding:5px 9px;min-width:58px;opacity:${billStatus === "due" ? "1" : ".45"};${billStatus === "due" ? "border-color:#dc2626;color:#dc2626;font-weight:700;" : ""}">Due</button>
     </div>${billStatus === "inactive" ? '<small class="muted">Inactive</small>' : ""}</td>
   </tr>`;
@@ -253,7 +253,7 @@ function render() {
   $("totalCustomers").textContent = customers.length;
 
   $("activeCustomers").textContent =
-    customers.filter(c => c.status === "active" && !customerHasDue(c)).length;
+    customers.filter(c => c.status === "active").length;
 
   $("dueCustomers").textContent = customers.filter(customerHasDue).length;
 
@@ -676,6 +676,25 @@ function renderCustomerRows() {
   if (heading) heading.textContent = "Customer List / " + labels[customerListFilter] + " (" + (customerListFilter === "due" ? filtered.reduce((n,c)=>n + (invoices.some(i=>String(i.customer_id)===String(c.id)) ? invoices.filter(i=>String(i.customer_id)===String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount))>0).length : 1),0) : filtered.length) + ")";
 }
 $("customerRows").addEventListener("click", async e => {
+  const activateButton = e.target.closest(".setCustomerActiveBtn");
+  if (activateButton) {
+    e.stopPropagation();
+    const customerId = activateButton.dataset.setCustomerActive;
+    const customer = customers.find(c => String(c.id) === String(customerId));
+    if (!customer) return alert("গ্রাহক পাওয়া যায়নি।");
+    if (customer.status === "active") return alert("এই গ্রাহক ইতিমধ্যে Active Customer তালিকায় আছেন। বকেয়া থাকলে Due তালিকাতেও থাকবেন।");
+    if (!confirm(customer.name + " — গ্রাহককে Active Customer তালিকায় যোগ করবেন? বকেয়া বিল Due-ই থাকবে।")) return;
+    const result = await sb.from("customers").update({status:"active"}).eq("id",customerId);
+    if (result.error) return alert("Status পরিবর্তন হয়নি: " + result.error.message);
+    await loadAll();
+    customerListFilter = "all";
+    activeBillFilter = "all";
+    $("customerSearch").value = "";
+    renderCustomerRows();
+    showPage("customers");
+    alert("গ্রাহক Active Customer তালিকায় যোগ হয়েছে। বকেয়া বিল Due হিসেবেই রাখা হয়েছে।");
+    return;
+  }
   const paidButton = e.target.closest(".markDuePaidBtn");
   if (!paidButton) return;
   e.stopPropagation();
