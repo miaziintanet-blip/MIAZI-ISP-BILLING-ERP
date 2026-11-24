@@ -275,6 +275,10 @@ function customerRow(c) {
   const billStatus = due
     ? '<span class="pill danger">Due / বকেয়া</span>'
     : '<span class="pill">Paid / পরিশোধিত</span>';
+  const quickBillButtons = currentPage === "customers" && customerListFilter === "all"
+    ? `<button type="button" class="quickBillAction" data-bill-action="paid" data-customer-id="${esc(c.id)}">Paid</button>
+      <button type="button" class="quickBillAction secondary" data-bill-action="due" data-customer-id="${esc(c.id)}">Due</button>`
+    : "";
   return `<tr data-customer-id="${esc(c.id)}" class="customer-row" style="cursor:pointer">
     <td>${esc(c.name)}</td>
     <td>${esc(c.phone)}</td>
@@ -282,9 +286,7 @@ function customerRow(c) {
     <td>${esc(c.mac_address || "—")}</td>
     <td>${esc(c.connection_date || "—")}</td>
     <td>${money(c.monthly_fee)}</td>
-    <td><div class="actions" style="gap:5px;flex-wrap:wrap">${customerStatus}${billStatus}
-      <button type="button" class="quickBillAction" data-bill-action="paid" data-customer-id="${esc(c.id)}">Paid</button>
-      <button type="button" class="quickBillAction secondary" data-bill-action="due" data-customer-id="${esc(c.id)}">Due</button>
+    <td><div class="actions" style="gap:5px;flex-wrap:wrap">${customerStatus}${billStatus}${quickBillButtons}
     </div></td>
   </tr>`;
 }
@@ -820,26 +822,33 @@ $("customerRows").addEventListener("click", async e => {
       return;
     }
     const markPaid = quickButton.dataset.billAction === "paid";
+    const oldPaidAmount = Number(latestInvoice.paid_amount || 0);
+    const billAmount = Number(latestInvoice.amount || 0);
+    if (markPaid && oldPaidAmount >= billAmount) return alert("সর্বশেষ মাসের বিল ইতিমধ্যে Paid আছে।");
+    if (!markPaid && oldPaidAmount <= 0) return alert("সর্বশেষ মাসের বিল ইতিমধ্যে Due আছে।");
+    const result = await sb.from("invoices").update({
+      paid_amount: markPaid ? billAmount : 0,
+      status: markPaid ? "paid" : "unpaid"
+    }).eq("id", latestInvoice.id);
+    if (result.error) return alert("বিলের অবস্থা পরিবর্তন হয়নি: " + result.error.message);
     if (markPaid) {
-      const remaining = Math.max(0, Number(latestInvoice.amount) - Number(latestInvoice.paid_amount));
-      if (remaining <= 0) return alert("এই মাসের বিল ইতিমধ্যে Paid আছে।");
+      const remaining = Math.max(0, billAmount - oldPaidAmount);
       const payment = await sb.from("payments").insert({
         customer_id: customerId,
         amount: remaining,
         method: "Cash",
         note: "Paid directly from Total Customers"
       });
-      if (payment.error) return alert("পেমেন্ট সংরক্ষণ হয়নি: " + payment.error.message);
-    } else if (Number(latestInvoice.amount) - Number(latestInvoice.paid_amount) > 0) {
-      return alert("এই বিলে আগে থেকেই Due আছে। সংশোধনের জন্য Customer Information খুলুন।");
+      if (payment.error) {
+        await sb.from("invoices").update({
+          paid_amount: oldPaidAmount,
+          status: oldPaidAmount >= billAmount ? "paid" : "unpaid"
+        }).eq("id", latestInvoice.id);
+        return alert("পেমেন্ট সংরক্ষণ হয়নি, তাই বিলের আগের অবস্থা ফিরিয়ে দেওয়া হয়েছে: " + payment.error.message);
+      }
     }
-    const result = await sb.from("invoices").update({
-      paid_amount: markPaid ? Number(latestInvoice.amount) : 0,
-      status: markPaid ? "paid" : "unpaid"
-    }).eq("id", latestInvoice.id);
-    if (result.error) return alert("বিলের অবস্থা পরিবর্তন হয়নি: " + result.error.message);
     await loadAll();
-    alert(markPaid ? "বিল Paid হয়েছে।" : "বিল Due হয়েছে।");
+    alert(markPaid ? "সর্বশেষ তৈরি বিল Paid হয়েছে।" : "সর্বশেষ তৈরি বিল Due হয়েছে। পেমেন্টের পুরোনো ইতিহাস মুছে ফেলা হয়নি।");
     return;
   }
   const imoButton = e.target.closest(".imoReminderBtn");
