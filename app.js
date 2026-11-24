@@ -243,7 +243,7 @@ function customerRow(c) {
     <td>${esc(c.connection_date || "—")}</td>
     <td>${money(c.monthly_fee)}</td>
     <td><div class="actions" style="gap:5px;flex-wrap:nowrap">
-      <button type="button" class="secondary setCustomerActiveBtn" data-set-customer-active="${esc(c.id)}" aria-pressed="${c.status === "active"}" style="padding:5px 9px;min-width:58px;opacity:${billStatus === "paid" ? "1" : ".45"};${billStatus === "paid" ? "border-color:#16a34a;color:#16a34a;font-weight:700;" : ""}">Paid</button>
+      <button type="button" class="secondary setCustomerActiveBtn" data-set-customer-active="${esc(c.id)}" aria-pressed="${c.status === "active"}" style="padding:5px 9px;min-width:58px;opacity:${c.status === "active" ? "1" : ".8"};${c.status === "active" ? "border-color:#16a34a;color:#16a34a;font-weight:700;" : ""}">Paid</button>
       <button type="button" class="secondary" disabled aria-pressed="${billStatus === "due"}" style="padding:5px 9px;min-width:58px;opacity:${billStatus === "due" ? "1" : ".45"};${billStatus === "due" ? "border-color:#dc2626;color:#dc2626;font-weight:700;" : ""}">Due</button>
     </div>${billStatus === "inactive" ? '<small class="muted">Inactive</small>' : ""}</td>
   </tr>`;
