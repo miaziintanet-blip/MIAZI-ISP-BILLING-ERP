@@ -4,6 +4,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_DbGYxusmvOLwlLzEC8D4OQ_KX9o_Srj";
 
 let sb = null;
 let currentPage = "dashboard";
+let customerListFilter = "all";
 let customers = [], packages = [], payments = [], invoices = [], pops = [], areas = [], boxes = [], tickets = [], expenses = [];
 let lang = "both";
 let importRows = [], importReport = [];
@@ -72,6 +73,20 @@ document.querySelectorAll("[data-page]").forEach(b =>
 document.querySelectorAll("[data-go]").forEach(b =>
   b.onclick = () => showPage(b.dataset.go)
 );
+
+function openCustomerList(filter) {
+  customerListFilter = filter;
+  $("customerSearch").value = "";
+  renderCustomerRows();
+  showPage("customers");
+}
+document.querySelectorAll("[data-dashboard-filter]").forEach(card => {
+  const open = () => openCustomerList(card.dataset.dashboardFilter);
+  card.addEventListener("click", open);
+  card.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+  });
+});
 
 $("menuBtn").onclick = () =>
   $("sidebar").classList.toggle("open");
@@ -237,8 +252,7 @@ function render() {
   $("reportExpense").textContent = money(totalExpenses);
   $("reportNet").textContent = money(totalPaid-totalExpenses);
 
-  $("customerRows").innerHTML =
-    customers.map(customerRow).join("");
+  renderCustomerRows();
 
   $("packageRows").innerHTML =
     packages.map(p => `<tr>
@@ -462,21 +476,34 @@ $("paymentForm").onsubmit = async e => {
   alert("Payment saved / পেমেন্ট সংরক্ষিত" + (remaining > 0 ? ". অগ্রিম/অবণ্টিত টাকা: " + money(remaining) : ""));
 };
 
-// CUSTOMER SEARCH
-$("customerSearch").oninput = e => {
-  const q = e.target.value.toLowerCase();
-
-  $("customerRows").innerHTML = customers
-    .filter(c => [
-      c.name,
-      c.phone,
-      c.username,
-      c.mac_address,
-      c.connection_date
-    ].join(" ").toLowerCase().includes(q))
-    .map(customerRow)
-    .join("");
-};
+// DASHBOARD CUSTOMER FILTERS AND CUSTOMER SEARCH
+function customerHasDue(c) {
+  const customerInvoices = invoices.filter(i => String(i.customer_id) === String(c.id));
+  if (customerInvoices.length) {
+    return customerInvoices.some(i => Math.max(0, Number(i.amount) - Number(i.paid_amount)) > 0);
+  }
+  return Number(c.due_amount || 0) > 0;
+}
+function customerHasCollected(c) {
+  return payments.some(p => String(p.customer_id) === String(c.id) && Number(p.amount) > 0);
+}
+function renderCustomerRows() {
+  const q = ($("customerSearch").value || "").toLowerCase().trim();
+  const filtered = customers.filter(c => {
+    if (customerListFilter === "active" && c.status !== "active") return false;
+    if (customerListFilter === "due" && !customerHasDue(c)) return false;
+    if (customerListFilter === "collected" && !customerHasCollected(c)) return false;
+    return [c.name,c.phone,c.username,c.mac_address,c.connection_date,c.customer_code]
+      .join(" ").toLowerCase().includes(q);
+  });
+  $("customerRows").innerHTML = filtered.length
+    ? filtered.map(customerRow).join("")
+    : '<tr><td colspan="7">এই তালিকায় কোনো গ্রাহক পাওয়া যায়নি।</td></tr>';
+  const labels = {all:"সব গ্রাহক",active:"চালু গ্রাহক",due:"বকেয়া গ্রাহক",collected:"পেমেন্ট করা গ্রাহক"};
+  const heading = document.querySelector("#customersPage .section h2");
+  if (heading) heading.textContent = "Customer List / " + labels[customerListFilter] + " (" + filtered.length + ")";
+}
+$("customerSearch").oninput = renderCustomerRows;
 
 
 // NETWORK, BILLING, SUPPORT AND EXPENSES
