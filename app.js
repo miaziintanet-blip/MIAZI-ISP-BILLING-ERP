@@ -883,7 +883,7 @@ $("customerRows").addEventListener("click", async e => {
   // Existing Due bills must be reviewed/paid from Customer Information.
   const row = paidButton.closest("tr[data-customer-id]");
   if (row) row.click();
-});
+}, true);
 
 $("sendAllDueReminder").onclick = () => {
   if (!dueReminderQueue.length || dueReminderIndex >= dueReminderQueue.length) {
