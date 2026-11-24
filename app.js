@@ -321,6 +321,7 @@ function esc(s) {
 
 // CUSTOMER DETAILS
 $("customerRows").addEventListener("click", e => {
+  if (e.target.closest(".markDuePaidBtn")) return;
   const row = e.target.closest("[data-customer-id]");
   if (!row) return;
   const c = customers.find(x => String(x.id) === row.dataset.customerId);
