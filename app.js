@@ -487,21 +487,52 @@ function customerHasDue(c) {
 function customerHasCollected(c) {
   return payments.some(p => String(p.customer_id) === String(c.id) && Number(p.amount) > 0);
 }
+function formatBillingMonth(value) {
+  if (!value) return "—";
+  const raw = String(value).slice(0, 7);
+  const parts = raw.split("-");
+  if (parts.length !== 2) return raw;
+  const date = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+  return date.toLocaleDateString("bn-BD", {month:"long", year:"numeric"});
+}
 function renderCustomerRows() {
   const q = ($("customerSearch").value || "").toLowerCase().trim();
   const filtered = customers.filter(c => {
     if (customerListFilter === "active" && c.status !== "active") return false;
     if (customerListFilter === "due" && !customerHasDue(c)) return false;
     if (customerListFilter === "collected" && !customerHasCollected(c)) return false;
-    return [c.name,c.phone,c.username,c.mac_address,c.connection_date,c.customer_code]
+    return [c.name,c.phone,c.username,c.mac_address,c.connection_date,c.customer_code,c.address]
       .join(" ").toLowerCase().includes(q);
   });
-  $("customerRows").innerHTML = filtered.length
-    ? filtered.map(customerRow).join("")
-    : '<tr><td colspan="7">এই তালিকায় কোনো গ্রাহক পাওয়া যায়নি।</td></tr>';
+  const head = $("customerRows").closest("table").querySelector("thead");
+  if (customerListFilter === "due") {
+    head.innerHTML = '<tr><th>গ্রাহকের নাম</th><th>ইউজার নেম</th><th>মোবাইল নম্বর</th><th>ঠিকানা</th><th>মাসের নাম</th><th>মাসিক বিল</th><th>বকেয়া</th><th>পরিশোধের অবস্থা</th></tr>';
+    const rows = filtered.flatMap(c => {
+      const open = invoices.filter(i => String(i.customer_id) === String(c.id))
+        .map(i => ({invoice:i, due:Math.max(0,Number(i.amount)-Number(i.paid_amount))}))
+        .filter(x => x.due > 0);
+      const entries = open.length ? open : (!invoices.some(i => String(i.customer_id) === String(c.id)) && Number(c.due_amount || 0) > 0
+        ? [{invoice:null,due:Number(c.due_amount || 0)}] : []);
+      return entries.map(({invoice,due}) => {
+        const paid = Number(invoice?.paid_amount || 0);
+        const status = paid > 0 ? "Partial / আংশিক" : "Unpaid / অপরিশোধিত";
+        return `<tr data-customer-id="${esc(c.id)}" class="customer-row" style="cursor:pointer">
+          <td>${esc(c.name)}</td><td>${esc(c.username || "—")}</td><td>${esc(c.phone)}</td>
+          <td>${esc(c.address || "—")}</td><td>${esc(formatBillingMonth(invoice?.billing_month))}</td>
+          <td>${money(invoice?.amount ?? c.monthly_fee)}</td><td>${money(due)}</td>
+          <td><span class="pill danger">${status}</span></td></tr>`;
+      });
+    }).join("");
+    $("customerRows").innerHTML = rows || '<tr><td colspan="8">কোনো বকেয়া গ্রাহক পাওয়া যায়নি।</td></tr>';
+  } else {
+    head.innerHTML = '<tr><th>Name</th><th>Phone</th><th>Username</th><th>MAC</th><th>Connection Date</th><th>Monthly</th><th>Status</th></tr>';
+    $("customerRows").innerHTML = filtered.length
+      ? filtered.map(customerRow).join("")
+      : '<tr><td colspan="7">এই তালিকায় কোনো গ্রাহক পাওয়া যায়নি।</td></tr>';
+  }
   const labels = {all:"সব গ্রাহক",active:"চালু গ্রাহক",due:"বকেয়া গ্রাহক",collected:"পেমেন্ট করা গ্রাহক"};
   const heading = document.querySelector("#customersPage .section h2");
-  if (heading) heading.textContent = "Customer List / " + labels[customerListFilter] + " (" + filtered.length + ")";
+  if (heading) heading.textContent = "Customer List / " + labels[customerListFilter] + " (" + (customerListFilter === "due" ? filtered.reduce((n,c)=>n + (invoices.some(i=>String(i.customer_id)===String(c.id)) ? invoices.filter(i=>String(i.customer_id)===String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount))>0).length : 1),0) : filtered.length) + ")";
 }
 $("customerSearch").oninput = renderCustomerRows;
 
