@@ -428,6 +428,7 @@ $("customerForm").onsubmit = async e => {
 
   const d = Object.fromEntries(new FormData(e.target));
   d.monthly_fee = Number(d.monthly_fee);
+  d.due_amount = Number(d.due_amount || 0);
   d.package_id = d.package_id || null;
   d.connection_date = d.connection_date || todayISO();
   d.mac_address = d.mac_address || null;
@@ -501,10 +502,8 @@ $("paymentForm").onsubmit = async e => {
 // DASHBOARD CUSTOMER FILTERS AND CUSTOMER SEARCH
 function customerHasDue(c) {
   const customerInvoices = invoices.filter(i => String(i.customer_id) === String(c.id));
-  if (customerInvoices.length) {
-    return customerInvoices.some(i => Math.max(0, Number(i.amount) - Number(i.paid_amount)) > 0);
-  }
-  return Number(c.due_amount || 0) > 0;
+  return Number(c.due_amount || 0) > 0 ||
+    customerInvoices.some(i => Math.max(0, Number(i.amount) - Number(i.paid_amount)) > 0);
 }
 function customerHasCollected(c) {
   return payments.some(p => String(p.customer_id) === String(c.id) && Number(p.amount) > 0);
@@ -536,15 +535,17 @@ function renderCustomerRows() {
       const open = invoices.filter(i => String(i.customer_id) === String(c.id))
         .map(i => ({invoice:i, due:Math.max(0,Number(i.amount)-Number(i.paid_amount))}))
         .filter(x => x.due > 0);
-      const entries = open.length ? open : (!invoices.some(i => String(i.customer_id) === String(c.id)) && Number(c.due_amount || 0) > 0
-        ? [{invoice:null,due:Number(c.due_amount || 0)}] : []);
-      return entries.map(({invoice,due}) => {
+      const entries = [...open];
+      if (Number(c.due_amount || 0) > 0) {
+        entries.push({invoice:null,due:Number(c.due_amount || 0),opening:true});
+      }
+      return entries.map(({invoice,due,opening}) => {
         const paid = Number(invoice?.paid_amount || 0);
         const status = paid > 0 ? "Partial / আংশিক" : "Unpaid / অপরিশোধিত";
         return `<tr data-customer-id="${esc(c.id)}" class="customer-row" style="cursor:pointer">
           <td>${esc(c.name)}</td><td>${esc(c.username || "—")}</td><td>${esc(c.phone)}</td>
-          <td>${esc(c.address || "—")}</td><td>${esc(formatBillingMonth(invoice?.billing_month))}</td>
-          <td>${money(invoice?.amount ?? c.monthly_fee)}</td><td>${money(due)}</td>
+          <td>${esc(c.address || "—")}</td><td>${opening ? "আগের বকেয়া" : esc(formatBillingMonth(invoice?.billing_month))}</td>
+          <td>${money(invoice?.amount ?? due)}</td><td>${money(due)}</td>
           <td><span class="pill danger">${status}</span></td></tr>`;
       });
     }).join("");
