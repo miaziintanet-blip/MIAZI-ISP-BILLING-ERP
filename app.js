@@ -616,6 +616,10 @@ function formatBillingMonth(value) {
   const date = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
   return date.toLocaleDateString("bn-BD", {month:"long", year:"numeric"});
 }
+let dueReminderQueue = [];
+let dueReminderChannel = "whatsapp";
+let dueReminderIndex = 0;
+
 function renderCustomerRows() {
   const activeFilters = $("activeBillFilters");
   if (activeFilters) {
@@ -629,6 +633,11 @@ function renderCustomerRows() {
   const customerSections = document.querySelectorAll("#customersPage > .section");
   if (customerSections[1]) customerSections[1].classList.toggle("hidden", customerListFilter === "due");
   if (customerSections[2]) customerSections[2].classList.toggle("hidden", customerListFilter === "due");
+  const bulkReminderButton = $("sendAllDueReminder");
+  if (bulkReminderButton) {
+    bulkReminderButton.classList.toggle("hidden", customerListFilter !== "due");
+    bulkReminderButton.textContent = "Send All Reminder / সব Due গ্রাহককে রিমাইন্ডার";
+  }
   const q = ($("customerSearch").value || "").toLowerCase().trim();
   const filtered = customers.filter(c => {
     if (customerListFilter === "active" && c.status !== "active") return false;
@@ -747,6 +756,62 @@ $("customerRows").addEventListener("click", async e => {
   showPage("customers");
   alert("Paid সফল হয়েছে। বকেয়া থাকলে Due তালিকায় থাকবে, সব বকেয়া শেষ হলে Active Customer-এর Paid তালিকায় যাবে।");
 });
+
+$("sendAllDueReminder").onclick = () => {
+  if (!dueReminderQueue.length || dueReminderIndex >= dueReminderQueue.length) {
+    dueReminderQueue = [];
+    dueReminderIndex = 0;
+    const entries = [];
+    customers.filter(customerHasDue).forEach(c => {
+      invoices.filter(i => String(i.customer_id) === String(c.id)).forEach(i => {
+        const due = Math.max(0, Number(i.amount) - Number(i.paid_amount));
+        if (due > 0) {
+          const month = formatBillingMonth(i.billing_month);
+          entries.push({customer:c, due, month, message:"প্রিয় " + c.name + ", আপনার " + month + " মাসের ইন্টারনেট বিল " + money(due) + " বকেয়া রয়েছে। অনুগ্রহ করে পরিশোধ করুন। — MIAZI Internet"});
+        }
+      });
+      if (Number(c.due_amount || 0) > 0) {
+        const month = c.due_month ? formatBillingMonth(c.due_month) : "আগের";
+        const due = Number(c.due_amount || 0);
+        entries.push({customer:c, due, month, message:"প্রিয় " + c.name + ", আপনার " + month + " মাসের ইন্টারনেট বিল " + money(due) + " বকেয়া রয়েছে। অনুগ্রহ করে পরিশোধ করুন। — MIAZI Internet"});
+      }
+    });
+    if (!entries.length) return alert("কোনো বকেয়া বিল পাওয়া যায়নি।");
+    const choice = prompt("কোন মাধ্যমে পাঠাবেন? 1 = WhatsApp, 2 = IMO", "1");
+    if (choice !== "1" && choice !== "2") return;
+    dueReminderChannel = choice === "2" ? "imo" : "whatsapp";
+    dueReminderQueue = entries;
+    dueReminderIndex = 0;
+  }
+  const item = dueReminderQueue[dueReminderIndex];
+  if (!item) return;
+  if (dueReminderChannel === "whatsapp") {
+    const phone = String(item.customer.phone || "").replace(/\\D/g, "").replace(/^0/, "880");
+    if (!phone) return alert("এই গ্রাহকের মোবাইল নম্বর নেই। তালিকা থেকে পরেরবার চেষ্টা করুন।");
+    window.open("https://wa.me/" + phone + "?text=" + encodeURIComponent(item.message), "_blank", "noopener");
+  } else {
+    window.open("https://imo.im/", "_blank", "noopener");
+    try {
+      navigator.clipboard.writeText(item.message).then(
+        () => alert("বার্তা কপি হয়েছে। IMO-তে " + item.customer.name + " এর চ্যাটে পেস্ট করে Send করুন।"),
+        () => window.prompt("বার্তাটি কপি করে IMO-তে পাঠান:", item.message)
+      );
+    } catch {
+      window.prompt("বার্তাটি কপি করে IMO-তে পাঠান:", item.message);
+    }
+  }
+  dueReminderIndex++;
+  const button = $("sendAllDueReminder");
+  if (dueReminderIndex >= dueReminderQueue.length) {
+    button.textContent = "সব রিমাইন্ডার প্রস্তুত হয়েছে";
+    alert("সব " + dueReminderQueue.length + "টি রিমাইন্ডার একে একে খোলা হয়েছে। প্রতিটি চ্যাটে Send চাপতে হবে।");
+    dueReminderQueue = [];
+    dueReminderIndex = 0;
+  } else {
+    button.textContent = "পরের রিমাইন্ডার (" + (dueReminderIndex + 1) + "/" + dueReminderQueue.length + ") — চাপুন";
+  }
+};
+
 $("customerSearch").oninput = renderCustomerRows;
 
 function setActiveBillFilter(filter) {
