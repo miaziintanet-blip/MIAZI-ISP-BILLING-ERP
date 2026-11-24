@@ -618,7 +618,7 @@ function formatBillingMonth(value) {
 function renderCustomerRows() {
   const activeFilters = $("activeBillFilters");
   if (activeFilters) {
-    activeFilters.classList.toggle("hidden", customerListFilter !== "active");
+    activeFilters.classList.remove("hidden");
     [["activePaidFilter","paid"],["activeDueFilter","due"],["activeAllFilter","all"]].forEach(([id,value]) => {
       const button = $(id);
       button.classList.toggle("active", activeBillFilter === value);
@@ -675,8 +675,11 @@ function renderCustomerRows() {
 $("customerSearch").oninput = renderCustomerRows;
 
 function setActiveBillFilter(filter) {
+  customerListFilter = "active";
   activeBillFilter = filter;
+  $("customerSearch").value = "";
   renderCustomerRows();
+  showPage("customers");
 }
 $("activePaidFilter").onclick = () => setActiveBillFilter("paid");
 $("activeDueFilter").onclick = () => setActiveBillFilter("due");
