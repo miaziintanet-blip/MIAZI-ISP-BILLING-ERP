@@ -42,7 +42,7 @@ function setConnectionDateDefault() {
 
 function showPage(page) {
   currentPage = page;
-  const customerViews = ["customers","activeCustomers","dueCustomers","paidCustomers"];
+  const customerViews = ["customers","activeCustomers","dueCustomers","paidCustomers","monthEndDue"];
   const visiblePage = customerViews.includes(page) ? "customers" : page;
   ["dashboard","customers","customerDetail","packages","payments","invoices","network","tickets","expenses","reports","settings"]
     .forEach(p => $(p + "Page").classList.toggle("hidden", p !== visiblePage));
@@ -56,6 +56,7 @@ function showPage(page) {
     customers:"Total Customers / মোট গ্রাহক",
     activeCustomers:"Active Customers / চালু গ্রাহক",
     dueCustomers:"Due Customers / বকেয়া গ্রাহক",
+    monthEndDue:"মাসশেষ Due Customer নোটিফিকেশন",
     paidCustomers:"Paid Customers / পরিশোধিত গ্রাহক",
     customerDetail:"Customer Information / গ্রাহকের তথ্য",
     packages:"Packages / প্যাকেজ",
@@ -74,7 +75,7 @@ function showPage(page) {
 document.querySelectorAll("[data-page]").forEach(b =>
   b.onclick = () => {
     const page = b.dataset.page;
-    const customerPageFilters = {customers:"all",activeCustomers:"active",dueCustomers:"due",paidCustomers:"paid"};
+    const customerPageFilters = {customers:"all",activeCustomers:"active",dueCustomers:"due",paidCustomers:"paid",monthEndDue:"due"};
     if (Object.prototype.hasOwnProperty.call(customerPageFilters, page)) {
       customerListFilter = customerPageFilters[page];
       activeBillFilter = customerListFilter;
