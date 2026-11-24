@@ -629,7 +629,9 @@ function renderCustomerRows() {
   const filtered = customers.filter(c => {
     if (customerListFilter === "active" && c.status !== "active") return false;
     if (customerListFilter === "active" && activeBillFilter === "due" && !customerHasDue(c)) return false;
-    if (customerListFilter === "active" && activeBillFilter === "paid" && customerHasDue(c)) return false;
+    if (customerListFilter === "active" && activeBillFilter === "paid" && (c.status !== "active" || customerHasDue(c))) return false;
+    if (customerListFilter === "all" && activeBillFilter === "due" && !customerHasDue(c)) return false;
+    if (customerListFilter === "all" && activeBillFilter === "paid" && (c.status !== "active" || customerHasDue(c))) return false;
     if (customerListFilter === "due" && !customerHasDue(c)) return false;
     if (customerListFilter === "collected" && !customerHasCollected(c)) return false;
     return [c.name,c.phone,c.username,c.mac_address,c.connection_date,c.customer_code,c.address]
@@ -672,7 +674,9 @@ function renderCustomerRows() {
 $("customerSearch").oninput = renderCustomerRows;
 
 function setActiveBillFilter(filter) {
-  customerListFilter = filter === "due" ? "due" : "active";
+  if (customerListFilter !== "all" && customerListFilter !== "active") {
+    customerListFilter = "all";
+  }
   activeBillFilter = filter;
   $("customerSearch").value = "";
   renderCustomerRows();
