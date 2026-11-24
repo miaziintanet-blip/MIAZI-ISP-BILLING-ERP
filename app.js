@@ -277,8 +277,7 @@ function customerRow(c) {
     ? '<span class="pill danger">Due / বকেয়া</span>'
     : '<span class="pill">Paid / পরিশোধিত</span>';
   const quickBillButtons = currentPage === "customers" && customerListFilter === "all"
-    ? `<button type="button" class="quickBillAction" data-bill-action="paid" data-customer-id="${esc(c.id)}">Paid</button>
-      <button type="button" class="quickBillAction secondary" data-bill-action="due" data-customer-id="${esc(c.id)}" style="margin-left:14px">Due</button>`
+    ? `<span class="quickBillGroup" style="display:inline-flex;align-items:center;gap:14px;white-space:nowrap;flex-wrap:nowrap"><button type="button" class="quickBillAction" data-bill-action="paid" data-customer-id="${esc(c.id)}">Paid</button><button type="button" class="quickBillAction secondary" data-bill-action="due" data-customer-id="${esc(c.id)}">Due</button></span>`
     : "";
   return `<tr data-customer-id="${esc(c.id)}" class="customer-row" style="cursor:pointer">
     <td>${esc(c.name)}</td>
