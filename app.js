@@ -652,11 +652,14 @@ function renderCustomerRows() {
       return entries.map(({invoice,due,opening}) => {
         const paid = Number(invoice?.paid_amount || 0);
         const status = paid > 0 ? "Partial / আংশিক" : "Unpaid / অপরিশোধিত";
+        const billMonth = opening ? (c.due_month ? formatBillingMonth(c.due_month) : "আগের") : formatBillingMonth(invoice?.billing_month);
+        const reminderMessage = "প্রিয় " + c.name + ", আপনার " + billMonth + " মাসের ইন্টারনেট বিল " + money(due) + " বকেয়া রয়েছে। অনুগ্রহ করে পরিশোধ করুন। — MIAZI Internet";
+        const whatsappPhone = String(c.phone || "").replace(/\\D/g, "").replace(/^0/, "880");
         return `<tr data-customer-id="${esc(c.id)}" class="customer-row" style="cursor:pointer">
           <td>${esc(c.name)}</td><td>${esc(c.username || "—")}</td><td>${esc(c.phone)}</td>
           <td>${esc(c.address || "—")}</td><td>${opening ? (c.due_month ? esc(formatBillingMonth(c.due_month)) : "মাস নির্বাচন হয়নি") : esc(formatBillingMonth(invoice?.billing_month))}</td>
           <td>${money(invoice?.amount ?? due)}</td><td>${money(due)}</td>
-          <td><span class="pill danger">${status}</span><br><a class="secondary" href="sms:${esc(c.phone || "")}?body=${encodeURIComponent("প্রিয় " + c.name + ", আপনার " + (opening ? (c.due_month ? formatBillingMonth(c.due_month) : "আগের") : formatBillingMonth(invoice?.billing_month)) + " মাসের ইন্টারনেট বিল " + money(due) + " বকেয়া রয়েছে। অনুগ্রহ করে পরিশোধ করুন। — MIAZI Internet")} " style="display:inline-block;text-decoration:none;margin-top:6px;padding:7px 10px;border-radius:7px">SMS Reminder / SMS পাঠান</a><br><button type="button" class="markDuePaidBtn" data-mark-due-paid="${opening ? "opening" : "invoice"}" data-customer-id="${esc(c.id)}" ${invoice ? `data-invoice-id="${esc(invoice.id)}"` : ""} style="margin-top:6px;padding:7px 10px">Paid / পরিশোধ</button></td></tr>`;
+          <td><span class="pill danger">${status}</span><br><a class="secondary" href="https://wa.me/${whatsappPhone}?text=${encodeURIComponent(reminderMessage)}" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;margin-top:6px;padding:7px 10px;border-radius:7px">WhatsApp Reminder</a><br><button type="button" class="secondary imoReminderBtn" data-message="${esc(reminderMessage)}" style="margin-top:6px;padding:7px 10px">IMO Reminder</button><br><a class="secondary" href="sms:${esc(c.phone || "")}?body=${encodeURIComponent(reminderMessage)}" style="display:inline-block;text-decoration:none;margin-top:6px;padding:7px 10px;border-radius:7px">SMS Reminder / SMS পাঠান</a><br><button type="button" class="markDuePaidBtn" data-mark-due-paid="${opening ? "opening" : "invoice"}" data-customer-id="${esc(c.id)}" ${invoice ? `data-invoice-id="${esc(invoice.id)}"` : ""} style="margin-top:6px;padding:7px 10px">Paid / পরিশোধ</button></td></tr>`;
       });
     }).join("");
     $("customerRows").innerHTML = rows || '<tr><td colspan="8">কোনো বকেয়া গ্রাহক পাওয়া যায়নি।</td></tr>';
@@ -673,6 +676,19 @@ function renderCustomerRows() {
   if (heading) heading.textContent = "Customer List / " + labels[customerListFilter] + " (" + (customerListFilter === "due" ? filtered.reduce((n,c)=>n + (invoices.some(i=>String(i.customer_id)===String(c.id)) ? invoices.filter(i=>String(i.customer_id)===String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount))>0).length : 1),0) : filtered.length) + ")";
 }
 $("customerRows").addEventListener("click", async e => {
+  const imoButton = e.target.closest(".imoReminderBtn");
+  if (imoButton) {
+    e.stopPropagation();
+    const message = imoButton.dataset.message || "";
+    window.open("https://imo.im/", "_blank", "noopener");
+    try {
+      await navigator.clipboard.writeText(message);
+      alert("বিলের রিমাইন্ডার বার্তা কপি হয়েছে। IMO-তে গ্রাহকের চ্যাট খুলে পেস্ট করে পাঠান।");
+    } catch {
+      window.prompt("এই বার্তাটি কপি করে IMO-তে পাঠান:", message);
+    }
+    return;
+  }
   const activateButton = e.target.closest(".setCustomerActiveBtn");
   if (activateButton) {
     e.stopPropagation();
