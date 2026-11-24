@@ -277,6 +277,8 @@ function render() {
 
   $("dueCustomers").textContent = customers.filter(customerHasDue).length;
 
+  $("paidCustomersCount").textContent = customers.filter(c => c.status === "active" && !customerHasDue(c)).length;
+
   $("collected").textContent =
     money(payments.reduce((a, p) => a + Number(p.amount), 0));
 
