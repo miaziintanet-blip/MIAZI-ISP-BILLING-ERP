@@ -505,6 +505,9 @@ function formatBillingMonth(value) {
   return date.toLocaleDateString("bn-BD", {month:"long", year:"numeric"});
 }
 function renderCustomerRows() {
+  const customerSections = document.querySelectorAll("#customersPage > .section");
+  if (customerSections[1]) customerSections[1].classList.toggle("hidden", customerListFilter === "due");
+  if (customerSections[2]) customerSections[2].classList.toggle("hidden", customerListFilter === "due");
   const q = ($("customerSearch").value || "").toLowerCase().trim();
   const filtered = customers.filter(c => {
     if (customerListFilter === "active" && c.status !== "active") return false;
