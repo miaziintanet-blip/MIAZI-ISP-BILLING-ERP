@@ -235,8 +235,10 @@ function render() {
   $("activeCustomers").textContent =
     customers.filter(c => c.status === "active").length;
 
-  const invoiceDue = invoices.filter(i => ["unpaid","partial"].includes(i.status)).reduce((s,i) => s + Math.max(0,Number(i.amount)-Number(i.paid_amount)),0);
-  $("dueCustomers").textContent = invoices.length ? invoices.filter(i => ["unpaid","partial"].includes(i.status)).length : customers.filter(c => Number(c.due_amount || 0) > 0).length;
+  $("dueCustomers").textContent = customers.filter(c =>
+    Number(c.due_amount || 0) > 0 ||
+    invoices.some(i => String(i.customer_id) === String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount)) > 0)
+  ).length;
 
   $("collected").textContent =
     money(payments.reduce((a, p) => a + Number(p.amount), 0));
@@ -266,7 +268,8 @@ function render() {
   }).join("");
   $("ticketRows").innerHTML = tickets.map(t => `<tr><td>${new Date(t.opened_at).toLocaleDateString()}</td><td>${esc(t.customers?.name || "—")}</td><td>${esc(t.subject)}</td><td>${esc(t.priority)}</td><td>${esc(t.status)}</td><td><select data-ticket-id="${t.id}" class="ticketStatus"><option value="open" ${t.status==="open"?"selected":""}>Open</option><option value="in_progress" ${t.status==="in_progress"?"selected":""}>In progress</option><option value="resolved" ${t.status==="resolved"?"selected":""}>Resolved</option><option value="closed" ${t.status==="closed"?"selected":""}>Closed</option></select></td></tr>`).join("");
   $("expenseRows").innerHTML = expenses.map(x => `<tr><td>${esc(x.expense_date)}</td><td>${esc(x.category)}</td><td>${esc(x.description)}</td><td>${money(x.amount)}</td><td>${esc(x.payment_method)}</td></tr>`).join("");
-  const totalDue = invoices.reduce((s,i) => s + Math.max(0,Number(i.amount)-Number(i.paid_amount)),0);
+  const totalDue = invoices.reduce((s,i) => s + Math.max(0,Number(i.amount)-Number(i.paid_amount)),0)
+    + customers.reduce((s,c) => s + Number(c.due_amount || 0),0);
   const totalExpenses = expenses.reduce((s,x) => s + Number(x.amount),0);
   const totalPaid = payments.reduce((s,p) => s + Number(p.amount),0);
   $("reportDue").textContent = money(totalDue);
@@ -320,10 +323,36 @@ $("customerRows").addEventListener("click", e => {
       ${detailField("Monthly Fee", money(c.monthly_fee))}
       ${detailField("Connection Date", c.connection_date)}
       ${detailField("Status", c.status)}
-      ${detailField("Due Amount", money(c.due_amount))}
+      ${detailField("আগের বকেয়া / Opening Due", money(c.due_amount))}
       ${detailField("Address", c.address)}
+    </div>
+    <div class="section" style="margin-top:16px">
+      <h2>আগের বকেয়া যোগ / পরিবর্তন</h2>
+      <p class="muted">এই গ্রাহকের মোট আগের বকেয়া টাকা লিখুন। বকেয়া না থাকলে 0 দিন।</p>
+      <form id="openingDueForm" data-customer-id="${esc(c.id)}" class="formgrid">
+        <div><label>বকেয়া টাকা / Opening Due</label><input name="due_amount" type="number" min="0" step="0.01" value="${Number(c.due_amount || 0)}" required></div>
+        <div style="align-self:end"><button type="submit">বকেয়া সংরক্ষণ করুন</button></div>
+      </form>
     </div>`;
   showPage("customerDetail");
+});
+$("customerDetailContent").addEventListener("submit", async e => {
+  if (e.target.id !== "openingDueForm") return;
+  e.preventDefault();
+  const customerId = e.target.dataset.customerId;
+  const dueAmount = Number(new FormData(e.target).get("due_amount"));
+  if (!Number.isFinite(dueAmount) || dueAmount < 0) return alert("সঠিক বকেয়া টাকা লিখুন।");
+  const { error } = await sb.from("customers").update({due_amount:dueAmount}).eq("id",customerId);
+  if (error) return alert("বকেয়া সংরক্ষণ হয়নি: " + error.message);
+  await loadAll();
+  const customer = customers.find(c => String(c.id) === String(customerId));
+  if (customer) {
+    const input = $("customerDetailContent").querySelector("input[name='due_amount']");
+    if (input) input.value = Number(customer.due_amount || 0);
+    const dueCard = [...$("customerDetailContent").querySelectorAll(".card")].find(el => el.textContent.includes("আগের বকেয়া"));
+    if (dueCard) dueCard.querySelector("b").textContent = money(customer.due_amount);
+  }
+  alert("আগের বকেয়া সংরক্ষণ হয়েছে। Due Customer তালিকা আপডেট হয়েছে।");
 });
 function detailField(label, value) {
   return `<div class="card"><span class="muted">${esc(label)}</span><b style="font-size:17px;overflow-wrap:anywhere">${esc(value || "—")}</b></div>`;
