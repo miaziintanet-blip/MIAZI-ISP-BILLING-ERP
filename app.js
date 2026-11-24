@@ -324,13 +324,15 @@ $("customerRows").addEventListener("click", e => {
       ${detailField("Connection Date", c.connection_date)}
       ${detailField("Status", c.status)}
       ${detailField("আগের বকেয়া / Opening Due", money(c.due_amount))}
+      ${detailField("বকেয়া মাস / Due Month", c.due_month ? formatBillingMonth(c.due_month) : "মাস নির্বাচন হয়নি")}
       ${detailField("Address", c.address)}
     </div>
     <div class="section" style="margin-top:16px">
       <h2>আগের বকেয়া যোগ / পরিবর্তন</h2>
-      <p class="muted">এই গ্রাহকের মোট আগের বকেয়া টাকা লিখুন। বকেয়া না থাকলে 0 দিন।</p>
+      <p class="muted">বকেয়া টাকার সঙ্গে যে মাসের বিল বকেয়া, সেই মাস নির্বাচন করুন। বকেয়া না থাকলে 0 দিন।</p>
       <form id="openingDueForm" data-customer-id="${esc(c.id)}" class="formgrid">
         <div><label>বকেয়া টাকা / Opening Due</label><input name="due_amount" type="number" min="0" step="0.01" value="${Number(c.due_amount || 0)}" required></div>
+        <div><label>বকেয়া মাস / Due Month</label><input name="due_month" type="month" value="${esc(c.due_month || "")}" ${Number(c.due_amount || 0) > 0 ? "required" : ""}></div>
         <div style="align-self:end"><button type="submit">বকেয়া সংরক্ষণ করুন</button></div>
       </form>
     </div>`;
@@ -340,15 +342,20 @@ $("customerDetailContent").addEventListener("submit", async e => {
   if (e.target.id !== "openingDueForm") return;
   e.preventDefault();
   const customerId = e.target.dataset.customerId;
-  const dueAmount = Number(new FormData(e.target).get("due_amount"));
+  const formData = new FormData(e.target);
+  const dueAmount = Number(formData.get("due_amount"));
+  const dueMonth = String(formData.get("due_month") || "");
   if (!Number.isFinite(dueAmount) || dueAmount < 0) return alert("সঠিক বকেয়া টাকা লিখুন।");
-  const { error } = await sb.from("customers").update({due_amount:dueAmount}).eq("id",customerId);
+  if (dueAmount > 0 && !dueMonth) return alert("বকেয়া মাস নির্বাচন করুন।");
+  const { error } = await sb.from("customers").update({due_amount:dueAmount,due_month:dueMonth || null}).eq("id",customerId);
   if (error) return alert("বকেয়া সংরক্ষণ হয়নি: " + error.message);
   await loadAll();
   const customer = customers.find(c => String(c.id) === String(customerId));
   if (customer) {
     const input = $("customerDetailContent").querySelector("input[name='due_amount']");
     if (input) input.value = Number(customer.due_amount || 0);
+    const monthInput = $("customerDetailContent").querySelector("input[name='due_month']");
+    if (monthInput) monthInput.value = customer.due_month || "";
     const dueCard = [...$("customerDetailContent").querySelectorAll(".card")].find(el => el.textContent.includes("আগের বকেয়া"));
     if (dueCard) dueCard.querySelector("b").textContent = money(customer.due_amount);
   }
@@ -573,7 +580,7 @@ function renderCustomerRows() {
         const status = paid > 0 ? "Partial / আংশিক" : "Unpaid / অপরিশোধিত";
         return `<tr data-customer-id="${esc(c.id)}" class="customer-row" style="cursor:pointer">
           <td>${esc(c.name)}</td><td>${esc(c.username || "—")}</td><td>${esc(c.phone)}</td>
-          <td>${esc(c.address || "—")}</td><td>${opening ? "আগের বকেয়া" : esc(formatBillingMonth(invoice?.billing_month))}</td>
+          <td>${esc(c.address || "—")}</td><td>${opening ? (c.due_month ? esc(formatBillingMonth(c.due_month)) : "মাস নির্বাচন হয়নি") : esc(formatBillingMonth(invoice?.billing_month))}</td>
           <td>${money(invoice?.amount ?? due)}</td><td>${money(due)}</td>
           <td><span class="pill danger">${status}</span></td></tr>`;
       });
