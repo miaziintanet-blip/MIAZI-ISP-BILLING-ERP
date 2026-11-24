@@ -42,9 +42,9 @@ function setConnectionDateDefault() {
 
 function showPage(page) {
   currentPage = page;
-  const customerViews = ["customers","activeCustomers","dueCustomers","paidCustomers","monthEndDue"];
+  const customerViews = ["customers","activeCustomers","dueCustomers","paidCustomers"];
   const visiblePage = customerViews.includes(page) ? "customers" : page;
-  ["dashboard","customers","customerDetail","packages","payments","invoices","network","tickets","expenses","reports","settings"]
+  ["dashboard","customers","customerDetail","monthEndDue","packages","payments","invoices","network","tickets","expenses","reports","settings"]
     .forEach(p => $(p + "Page").classList.toggle("hidden", p !== visiblePage));
 
   document.querySelectorAll(".nav button").forEach(b =>
@@ -75,7 +75,7 @@ function showPage(page) {
 document.querySelectorAll("[data-page]").forEach(b =>
   b.onclick = () => {
     const page = b.dataset.page;
-    const customerPageFilters = {customers:"all",activeCustomers:"active",dueCustomers:"due",paidCustomers:"paid",monthEndDue:"due"};
+    const customerPageFilters = {customers:"all",activeCustomers:"active",dueCustomers:"due",paidCustomers:"paid"};
     if (Object.prototype.hasOwnProperty.call(customerPageFilters, page)) {
       customerListFilter = customerPageFilters[page];
       activeBillFilter = customerListFilter;
