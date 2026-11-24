@@ -59,7 +59,7 @@ label,.muted{font-size:15px}
    <div class="section"><h2>Add Customer / নতুন গ্রাহক</h2><form id="customerForm" class="formgrid">
     <div><label>Name / নাম</label><input name="name" required></div><div><label>Mobile / মোবাইল</label><input name="phone" required></div>
     <div><label>Username / ইউজারনেম</label><input name="username"></div><div><label>MAC Address</label><input name="mac_address"></div><div><label>NID</label><input name="nid"></div><div><label>Customer Code (optional)</label><input name="customer_code"></div><div><label>Package / প্যাকেজ</label><select name="package_id" id="customerPackage"></select></div>
-    <div><label>Monthly Fee / মাসিক বিল</label><input name="monthly_fee" type="number" min="0" value="500" required></div><div><label>Status / অবস্থা</label><select name="status"><option value="active">Active / চালু</option><option value="inactive">Inactive / বন্ধ</option></select></div>
+    <div><label>Monthly Fee / মাসিক বিল</label><input name="monthly_fee" type="number" min="0" value="500" required></div><div><label>প্রাথমিক বকেয়া টাকা / Opening Due</label><input name="due_amount" type="number" min="0" step="0.01" value="0" placeholder="বকেয়া না থাকলে 0"></div><div><label>Status / অবস্থা</label><select name="status"><option value="active">Active / চালু</option><option value="inactive">Inactive / বন্ধ</option></select></div>
     <div><label>Customer Type / গ্রাহকের ধরন</label><select name="customer_type"><option value="home">Home</option><option value="soho">SOHO</option><option value="corporate">Corporate</option></select></div>
     <div><label>Email</label><input name="email" type="email"></div>
     <div><label>POP / পয়েন্ট</label><select name="pop_id" id="customerPop"><option value="">Select POP</option></select></div>
@@ -90,5 +90,5 @@ label,.muted{font-size:15px}
   <section id="settingsPage" class="hidden"><div class="section"><h2>Settings / সেটিংস</h2><p class="muted">Supabase project configuration is stored in app.js. Never put the service_role key in this browser app.</p><p>পরবর্তী ধাপে MikroTik API, SMS gateway, invoice branding ও staff permissions যুক্ত করা হবে।</p></div></section>
  </main>
 </div>
-<script src="app.js?v=20261124-1510"></script>
+<script src="app.js?v=20261124-1520"></script>
 </body></html>
