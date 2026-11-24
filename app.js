@@ -655,7 +655,7 @@ function renderCustomerRows() {
           <td>${esc(c.name)}</td><td>${esc(c.username || "—")}</td><td>${esc(c.phone)}</td>
           <td>${esc(c.address || "—")}</td><td>${opening ? (c.due_month ? esc(formatBillingMonth(c.due_month)) : "মাস নির্বাচন হয়নি") : esc(formatBillingMonth(invoice?.billing_month))}</td>
           <td>${money(invoice?.amount ?? due)}</td><td>${money(due)}</td>
-          <td><span class="pill danger">${status}</span></td></tr>`;
+          <td><span class="pill danger">${status}</span><br><button type="button" class="markDuePaidBtn" data-mark-due-paid="${opening ? "opening" : "invoice"}" data-customer-id="${esc(c.id)}" ${invoice ? `data-invoice-id="${esc(invoice.id)}"` : ""} style="margin-top:6px;padding:7px 10px">Paid / পরিশোধ</button></td></tr>`;
       });
     }).join("");
     $("customerRows").innerHTML = rows || '<tr><td colspan="8">কোনো বকেয়া গ্রাহক পাওয়া যায়নি।</td></tr>';
@@ -671,6 +671,46 @@ function renderCustomerRows() {
   const heading = document.querySelector("#customersPage .section h2");
   if (heading) heading.textContent = "Customer List / " + labels[customerListFilter] + " (" + (customerListFilter === "due" ? filtered.reduce((n,c)=>n + (invoices.some(i=>String(i.customer_id)===String(c.id)) ? invoices.filter(i=>String(i.customer_id)===String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount))>0).length : 1),0) : filtered.length) + ")";
 }
+$("customerRows").addEventListener("click", async e => {
+  const paidButton = e.target.closest(".markDuePaidBtn");
+  if (!paidButton) return;
+  e.stopPropagation();
+  const customerId = paidButton.dataset.customerId;
+  const customer = customers.find(c => String(c.id) === String(customerId));
+  if (!customer) return alert("গ্রাহক পাওয়া যায়নি।");
+  const kind = paidButton.dataset.markDuePaid;
+  const invoice = kind === "invoice"
+    ? invoices.find(i => String(i.id) === String(paidButton.dataset.invoiceId))
+    : null;
+  const dueAmount = kind === "opening"
+    ? Number(customer.due_amount || 0)
+    : invoice ? Math.max(0, Number(invoice.amount) - Number(invoice.paid_amount)) : 0;
+  if (!dueAmount || dueAmount <= 0) return alert("এই বিলে বকেয়া নেই।");
+  if (!confirm(customer.name + " — " + money(dueAmount) + " টাকা Paid হিসেবে চিহ্নিত করবেন?")) return;
+  const payment = await sb.from("payments").insert({
+    customer_id: customerId,
+    amount: dueAmount,
+    method: "Cash",
+    note: kind === "opening" ? "Opening due cleared from Due Customer list" : "Invoice due cleared from Due Customer list"
+  });
+  if (payment.error) return alert("পেমেন্ট রেকর্ড সংরক্ষণ হয়নি: " + payment.error.message);
+  if (kind === "opening") {
+    const result = await sb.from("customers").update({due_amount:0,due_month:null,status:"active"}).eq("id",customerId);
+    if (result.error) return alert("পেমেন্ট রেকর্ড হয়েছে, কিন্তু বকেয়া আপডেট হয়নি: " + result.error.message);
+  } else {
+    const result = await sb.from("invoices").update({paid_amount:Number(invoice.amount),status:"paid"}).eq("id",invoice.id);
+    if (result.error) return alert("পেমেন্ট রেকর্ড হয়েছে, কিন্তু বিল আপডেট হয়নি: " + result.error.message);
+    const statusResult = await sb.from("customers").update({status:"active"}).eq("id",customerId);
+    if (statusResult.error) return alert("বিল Paid হয়েছে, কিন্তু Customer Active করা যায়নি: " + statusResult.error.message);
+  }
+  await loadAll();
+  customerListFilter = "due";
+  activeBillFilter = "due";
+  $("customerSearch").value = "";
+  renderCustomerRows();
+  showPage("customers");
+  alert("Paid সফল হয়েছে। বকেয়া থাকলে Due তালিকায় থাকবে, সব বকেয়া শেষ হলে Active Customer-এর Paid তালিকায় যাবে।");
+});
 $("customerSearch").oninput = renderCustomerRows;
 
 function setActiveBillFilter(filter) {
