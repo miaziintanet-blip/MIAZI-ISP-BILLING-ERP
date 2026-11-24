@@ -119,6 +119,21 @@ $("langBtn").onclick = () => {
   $("langBtn").textContent = lang === "en" ? "English" : "বাংলা / EN";
 };
 
+function setPreviewMode(mode) {
+  document.body.classList.toggle("preview-desktop", mode === "desktop");
+  document.body.classList.toggle("preview-mobile", mode === "mobile");
+  [["desktopViewBtn","desktop"],["mobileViewBtn","mobile"],["autoViewBtn","auto"]].forEach(([id,value]) => {
+    const button = $(id);
+    button.classList.toggle("active", mode === value);
+    button.setAttribute("aria-pressed", mode === value ? "true" : "false");
+  });
+  $("sidebar").classList.remove("open");
+}
+$("desktopViewBtn").onclick = () => setPreviewMode("desktop");
+$("mobileViewBtn").onclick = () => setPreviewMode("mobile");
+$("autoViewBtn").onclick = () => setPreviewMode("auto");
+setPreviewMode("auto");
+
 $("loginBtn").onclick = async () => {
   if (!sb) return msg("Supabase configuration missing.");
 
