@@ -369,7 +369,7 @@ $("customerDetailContent").addEventListener("submit", async e => {
     const question = isPaid
       ? "এই মাসের বিল সম্পূর্ণ Paid করবেন?"
       : "এই মাসের বিলের জমা 0 করে Due করবেন?";
-    if (!confirm(question + "\\nপেমেন্টের ইতিহাস অপরিবর্তিত থাকবে।")) return;
+    if (!confirm(question + "\nপেমেন্টের ইতিহাস অপরিবর্তিত থাকবে।")) return;
     const {error} = await sb.from("invoices")
       .update({paid_amount:isPaid ? Number(invoice.amount) : 0, status:isPaid ? "paid" : "unpaid"})
       .eq("id", invoiceId);
@@ -377,7 +377,9 @@ $("customerDetailContent").addEventListener("submit", async e => {
     await loadAll();
     const customer = customers.find(c => String(c.id) === String(invoice.customer_id));
     if (customer) {
-      const row = document.querySelector(`.customer-row[data-customer-id="${CSS.escape(String(customer.id))}"]`);
+      customerListFilter = "all";
+      renderCustomerRows();
+      const row = [...document.querySelectorAll(".customer-row[data-customer-id]")].find(el => el.dataset.customerId === String(customer.id));
       if (row) row.click();
     }
     alert("বিলের অবস্থা সংশোধন হয়েছে।");
