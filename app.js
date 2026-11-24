@@ -255,8 +255,8 @@ function customerRow(c) {
   const customerStatus = c.status === "active"
     ? '<span class="pill">Active / চালু</span>'
     : '<span class="pill danger">Inactive / বন্ধ</span>';
-  const billStatus = c.status !== "active" ? ""
-    : due ? '<span class="pill danger">Due / বকেয়া</span>'
+  const billStatus = due
+    ? '<span class="pill danger">Due / বকেয়া</span>'
     : '<span class="pill">Paid / পরিশোধিত</span>';
   return `<tr data-customer-id="${esc(c.id)}" class="customer-row" style="cursor:pointer">
     <td>${esc(c.name)}</td>
@@ -265,7 +265,10 @@ function customerRow(c) {
     <td>${esc(c.mac_address || "—")}</td>
     <td>${esc(c.connection_date || "—")}</td>
     <td>${money(c.monthly_fee)}</td>
-    <td><div class="actions" style="gap:5px;flex-wrap:wrap">${customerStatus}${billStatus}</div></td>
+    <td><div class="actions" style="gap:5px;flex-wrap:wrap">${customerStatus}${billStatus}
+      <button type="button" class="quickBillAction" data-bill-action="paid" data-customer-id="${esc(c.id)}">Paid</button>
+      <button type="button" class="quickBillAction secondary" data-bill-action="due" data-customer-id="${esc(c.id)}">Due</button>
+    </div></td>
   </tr>`;
 }
 
@@ -346,7 +349,7 @@ function esc(s) {
 
 // CUSTOMER DETAILS
 $("customerRows").addEventListener("click", e => {
-  if (e.target.closest(".markDuePaidBtn")) return;
+  if (e.target.closest(".markDuePaidBtn, .quickBillAction")) return;
   const row = e.target.closest("[data-customer-id]");
   if (!row) return;
   const c = customers.find(x => String(x.id) === row.dataset.customerId);
@@ -778,6 +781,50 @@ function renderCustomerRows() {
   if (heading) heading.textContent = labels[customerListFilter] + " (" + (customerListFilter === "due" ? filtered.reduce((n,c)=>n + (invoices.some(i=>String(i.customer_id)===String(c.id)) ? invoices.filter(i=>String(i.customer_id)===String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount))>0).length : 1),0) : filtered.length) + ")";
 }
 $("customerRows").addEventListener("click", async e => {
+  const quickButton = e.target.closest(".quickBillAction");
+  if (quickButton) {
+    e.stopPropagation();
+    const customerId = quickButton.dataset.customerId;
+    const customer = customers.find(c => String(c.id) === String(customerId));
+    if (!customer) return alert("গ্রাহক পাওয়া যায়নি।");
+    const openInvoices = invoices.filter(i => String(i.customer_id) === String(customerId));
+    const hasExistingDue = Number(customer.due_amount || 0) > 0 ||
+      openInvoices.some(i => Number(i.amount) - Number(i.paid_amount) > 0);
+    const row = quickButton.closest("tr[data-customer-id]");
+    if (hasExistingDue) {
+      if (row) row.click();
+      return;
+    }
+    const latestInvoice = openInvoices.sort((a,b) =>
+      String(b.billing_month).localeCompare(String(a.billing_month))
+    )[0];
+    if (!latestInvoice) {
+      alert("এই গ্রাহকের কোনো বিল তৈরি হয়নি। আগে Invoices থেকে মাসের বিল তৈরি করুন।");
+      return;
+    }
+    const markPaid = quickButton.dataset.billAction === "paid";
+    if (markPaid) {
+      const remaining = Math.max(0, Number(latestInvoice.amount) - Number(latestInvoice.paid_amount));
+      if (remaining <= 0) return alert("এই মাসের বিল ইতিমধ্যে Paid আছে।");
+      const payment = await sb.from("payments").insert({
+        customer_id: customerId,
+        amount: remaining,
+        method: "Cash",
+        note: "Paid directly from Total Customers"
+      });
+      if (payment.error) return alert("পেমেন্ট সংরক্ষণ হয়নি: " + payment.error.message);
+    } else if (Number(latestInvoice.amount) - Number(latestInvoice.paid_amount) > 0) {
+      return alert("এই বিলে আগে থেকেই Due আছে। সংশোধনের জন্য Customer Information খুলুন।");
+    }
+    const result = await sb.from("invoices").update({
+      paid_amount: markPaid ? Number(latestInvoice.amount) : 0,
+      status: markPaid ? "paid" : "unpaid"
+    }).eq("id", latestInvoice.id);
+    if (result.error) return alert("বিলের অবস্থা পরিবর্তন হয়নি: " + result.error.message);
+    await loadAll();
+    alert(markPaid ? "বিল Paid হয়েছে।" : "বিল Due হয়েছে।");
+    return;
+  }
   const imoButton = e.target.closest(".imoReminderBtn");
   if (imoButton) {
     e.stopPropagation();
