@@ -233,6 +233,8 @@ async function loadExpenses() {
 }
 
 function customerRow(c) {
+  const due = customerHasDue(c);
+  const billStatus = c.status === "active" ? (due ? "due" : "paid") : "inactive";
   return `<tr data-customer-id="${esc(c.id)}" class="customer-row" style="cursor:pointer">
     <td>${esc(c.name)}</td>
     <td>${esc(c.phone)}</td>
@@ -240,9 +242,10 @@ function customerRow(c) {
     <td>${esc(c.mac_address || "—")}</td>
     <td>${esc(c.connection_date || "—")}</td>
     <td>${money(c.monthly_fee)}</td>
-    <td><span class="pill ${(customerListFilter === "active" || customerListFilter === "paid") ? (customerHasDue(c) ? "danger" : "") : (c.status === "active" ? "" : "danger")}">
-      ${(customerListFilter === "active" || customerListFilter === "paid") ? (customerHasDue(c) ? "Due / বকেয়া" : "Paid / পরিশোধিত") : esc(c.status)}
-    </span></td>
+    <td><div class="actions" style="gap:5px;flex-wrap:nowrap">
+      <button type="button" class="secondary" disabled aria-pressed="${billStatus === "paid"}" style="padding:5px 9px;min-width:58px;opacity:${billStatus === "paid" ? "1" : ".45"};${billStatus === "paid" ? "border-color:#16a34a;color:#16a34a;font-weight:700;" : ""}">Paid</button>
+      <button type="button" class="secondary" disabled aria-pressed="${billStatus === "due"}" style="padding:5px 9px;min-width:58px;opacity:${billStatus === "due" ? "1" : ".45"};${billStatus === "due" ? "border-color:#dc2626;color:#dc2626;font-weight:700;" : ""}">Due</button>
+    </div>${billStatus === "inactive" ? '<small class="muted">Inactive</small>' : ""}</td>
   </tr>`;
 }
 
