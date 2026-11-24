@@ -223,8 +223,8 @@ function customerRow(c) {
     <td>${esc(c.mac_address || "—")}</td>
     <td>${esc(c.connection_date || "—")}</td>
     <td>${money(c.monthly_fee)}</td>
-    <td><span class="pill ${c.status === "active" ? "" : "danger"}">
-      ${esc(c.status)}
+    <td><span class="pill ${customerListFilter === "active" ? (customerHasDue(c) ? "danger" : "") : (c.status === "active" ? "" : "danger")}">
+      ${customerListFilter === "active" ? (customerHasDue(c) ? "Due / বকেয়া" : "Paid / পরিশোধিত") : esc(c.status)}
     </span></td>
   </tr>`;
 }
@@ -587,7 +587,9 @@ function renderCustomerRows() {
     }).join("");
     $("customerRows").innerHTML = rows || '<tr><td colspan="8">কোনো বকেয়া গ্রাহক পাওয়া যায়নি।</td></tr>';
   } else {
-    head.innerHTML = '<tr><th>Name</th><th>Phone</th><th>Username</th><th>MAC</th><th>Connection Date</th><th>Monthly</th><th>Status</th></tr>';
+    head.innerHTML = customerListFilter === "active"
+      ? '<tr><th>Name</th><th>Phone</th><th>Username</th><th>MAC</th><th>Connection Date</th><th>Monthly</th><th>Bill Status / বিলের অবস্থা</th></tr>'
+      : '<tr><th>Name</th><th>Phone</th><th>Username</th><th>MAC</th><th>Connection Date</th><th>Monthly</th><th>Status</th></tr>';
     $("customerRows").innerHTML = filtered.length
       ? filtered.map(customerRow).join("")
       : '<tr><td colspan="7">এই তালিকায় কোনো গ্রাহক পাওয়া যায়নি।</td></tr>';
