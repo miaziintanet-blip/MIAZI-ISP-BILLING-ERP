@@ -132,6 +132,23 @@ document.querySelectorAll("[data-dashboard-filter]").forEach(card => {
 $("menuBtn").onclick = () =>
   $("sidebar").classList.toggle("open");
 
+$("refreshBtn").onclick = async () => {
+  const button = $("refreshBtn");
+  if (button.disabled) return;
+  button.disabled = true;
+  button.textContent = "লোড হচ্ছে…";
+  try {
+    await loadAll();
+    button.textContent = "✓ Updated";
+  } catch (error) {
+    alert("তথ্য Refresh হয়নি: " + (error?.message || error));
+    button.textContent = "↻ Refresh / রিফ্রেশ";
+  } finally {
+    button.disabled = false;
+    setTimeout(() => { button.textContent = "↻ Refresh / রিফ্রেশ"; }, 1500);
+  }
+};
+
 $("langBtn").onclick = () => {
   lang = lang === "both" ? "en" : "both";
   document.documentElement.lang = lang === "en" ? "en" : "bn";
