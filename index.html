@@ -17,6 +17,36 @@ body{font-size:16px}
 .nav button{font-size:16px}
 th,td{font-size:15px}
 label,.muted{font-size:15px}
+/* View preview controls: desktop, mobile, or automatic responsive layout */
+.view-switcher{align-items:center;flex-wrap:wrap}
+.view-switcher button{padding:8px 11px;font-size:14px}
+.view-switcher button.active{background:var(--green);color:#061b14}
+body.preview-desktop{overflow-x:auto}
+body.preview-desktop .app{grid-template-columns:250px minmax(750px,1fr);min-width:1000px}
+body.preview-desktop .side{display:block}
+body.preview-desktop .mobilemenu{display:none}
+body.preview-desktop .main{min-width:0;padding:24px}
+body.preview-desktop .cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+body.preview-desktop .formgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+body.preview-mobile .app{grid-template-columns:1fr;min-width:0}
+body.preview-mobile .side{display:none}
+body.preview-mobile .side.open{display:block}
+body.preview-mobile .mobilemenu{display:inline-block}
+body.preview-mobile .main{padding:15px;min-width:0}
+body.preview-mobile .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+body.preview-mobile .formgrid{grid-template-columns:1fr}
+body.preview-mobile .top{align-items:flex-start;flex-wrap:wrap}
+body.preview-mobile .top .actions{justify-content:flex-start}
+body.preview-mobile table{min-width:600px}
+@media(max-width:850px){
+ body.preview-desktop .app{grid-template-columns:250px minmax(750px,1fr);min-width:1000px}
+ body.preview-desktop .side{display:block}
+ body.preview-desktop .mobilemenu{display:none}
+ body.preview-desktop .main{padding:24px}
+ body.preview-desktop .cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+ body.preview-desktop .formgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
 </style></head>
 <body>
 <div id="loginView" class="login">
@@ -43,7 +73,12 @@ label,.muted{font-size:15px}
  <button data-page="settings">⚙ Settings / সেটিংস</button>
  </div><button id="logoutBtn" class="secondary" style="width:100%;margin-top:20px">Logout / লগআউট</button></aside>
  <main class="main">
-  <div class="top"><div><button class="mobilemenu secondary" id="menuBtn">☰</button> <h1 id="pageTitle" style="display:inline-block;margin:0 0 0 8px">Dashboard</h1><div class="muted">Miazi Internet Billing & ERP</div></div><div class="actions"><button class="secondary" id="langBtn">বাংলা / EN</button><span id="userEmail" class="muted"></span></div></div>
+  <div class="top"><div><button class="mobilemenu secondary" id="menuBtn">☰</button> <h1 id="pageTitle" style="display:inline-block;margin:0 0 0 8px">Dashboard</h1><div class="muted">Miazi Internet Billing & ERP</div></div><div class="actions view-switcher" aria-label="View mode">
+   <button type="button" class="secondary" id="desktopViewBtn" aria-pressed="false">Desktop</button>
+   <button type="button" class="secondary" id="mobileViewBtn" aria-pressed="false">Mobile</button>
+   <button type="button" class="secondary" id="autoViewBtn" aria-pressed="true">Auto</button>
+   <button class="secondary" id="langBtn">বাংলা / EN</button><span id="userEmail" class="muted"></span>
+  </div></div>
   <section id="dashboardPage">
    <div class="cards">
     <div class="card dashboard-card" data-dashboard-filter="all" role="button" tabindex="0" title="সব গ্রাহক দেখুন">Total Customers / মোট গ্রাহক<b id="totalCustomers">—</b><small>গ্রাহক তালিকা দেখতে চাপ দিন</small></div>
