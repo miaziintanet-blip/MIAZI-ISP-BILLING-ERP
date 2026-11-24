@@ -76,10 +76,23 @@ document.querySelectorAll("[data-go]").forEach(b =>
 
 document.querySelectorAll('[data-action="add-customer"]').forEach(b => {
   b.onclick = () => {
+    customerListFilter = "all";
+    renderCustomerRows();
     showPage("customers");
     const form = $("customerForm");
     form.scrollIntoView({behavior:"smooth", block:"start"});
     form.querySelector('[name="name"]').focus({preventScroll:true});
+  };
+});
+
+document.querySelectorAll('[data-action="import-customer"]').forEach(b => {
+  b.onclick = () => {
+    customerListFilter = "all";
+    renderCustomerRows();
+    showPage("customers");
+    const section = document.querySelectorAll("#customersPage > .section")[2];
+    section.scrollIntoView({behavior:"smooth", block:"start"});
+    $("customerImportFile").focus({preventScroll:true});
   };
 });
 
