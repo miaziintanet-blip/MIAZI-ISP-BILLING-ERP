@@ -656,7 +656,7 @@ function renderCustomerRows() {
           <td>${esc(c.name)}</td><td>${esc(c.username || "—")}</td><td>${esc(c.phone)}</td>
           <td>${esc(c.address || "—")}</td><td>${opening ? (c.due_month ? esc(formatBillingMonth(c.due_month)) : "মাস নির্বাচন হয়নি") : esc(formatBillingMonth(invoice?.billing_month))}</td>
           <td>${money(invoice?.amount ?? due)}</td><td>${money(due)}</td>
-          <td><span class="pill danger">${status}</span><br><button type="button" class="markDuePaidBtn" data-mark-due-paid="${opening ? "opening" : "invoice"}" data-customer-id="${esc(c.id)}" ${invoice ? `data-invoice-id="${esc(invoice.id)}"` : ""} style="margin-top:6px;padding:7px 10px">Paid / পরিশোধ</button></td></tr>`;
+          <td><span class="pill danger">${status}</span><br><a class="secondary" href="sms:${esc(c.phone || "")}?body=${encodeURIComponent("প্রিয় " + c.name + ", আপনার " + (opening ? (c.due_month ? formatBillingMonth(c.due_month) : "আগের") : formatBillingMonth(invoice?.billing_month)) + " মাসের ইন্টারনেট বিল " + money(due) + " বকেয়া রয়েছে। অনুগ্রহ করে পরিশোধ করুন। — MIAZI Internet")} " style="display:inline-block;text-decoration:none;margin-top:6px;padding:7px 10px;border-radius:7px">SMS Reminder / SMS পাঠান</a><br><button type="button" class="markDuePaidBtn" data-mark-due-paid="${opening ? "opening" : "invoice"}" data-customer-id="${esc(c.id)}" ${invoice ? `data-invoice-id="${esc(invoice.id)}"` : ""} style="margin-top:6px;padding:7px 10px">Paid / পরিশোধ</button></td></tr>`;
       });
     }).join("");
     $("customerRows").innerHTML = rows || '<tr><td colspan="8">কোনো বকেয়া গ্রাহক পাওয়া যায়নি।</td></tr>';
