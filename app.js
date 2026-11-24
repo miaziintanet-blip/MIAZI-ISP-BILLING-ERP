@@ -437,10 +437,29 @@ $("paymentForm").onsubmit = async e => {
   const { error } = await sb.from("payments").insert(d);
   if (error) return alert(error.message);
 
+  // Apply this payment to the customer's oldest open invoices first.
+  let remaining = d.amount;
+  const openResult = await sb.from("invoices").select("*").eq("customer_id",d.customer_id)
+    .in("status",["unpaid","partial"]).order("billing_month",{ascending:true});
+  if (openResult.error) {
+    alert("Payment saved, but invoice allocation needs attention: " + openResult.error.message);
+  } else {
+    for (const inv of (openResult.data || [])) {
+      if (remaining <= 0) break;
+      const due = Math.max(0,Number(inv.amount)-Number(inv.paid_amount));
+      const applied = Math.min(remaining,due);
+      const paid = Number(inv.paid_amount)+applied;
+      const status = paid >= Number(inv.amount) ? "paid" : "partial";
+      const upd = await sb.from("invoices").update({paid_amount:paid,status}).eq("id",inv.id);
+      if (upd.error) { alert("Payment saved, invoice update failed: " + upd.error.message); break; }
+      remaining -= applied;
+    }
+  }
+
   e.target.reset();
   await loadAll();
 
-  alert("Payment saved / পেমেন্ট সংরক্ষিত");
+  alert("Payment saved / পেমেন্ট সংরক্ষিত" + (remaining > 0 ? ". অগ্রিম/অবণ্টিত টাকা: " + money(remaining) : ""));
 };
 
 // CUSTOMER SEARCH
