@@ -42,9 +42,10 @@ function setConnectionDateDefault() {
 
 function showPage(page) {
   currentPage = page;
-
+  const customerViews = ["customers","activeCustomers","dueCustomers","paidCustomers"];
+  const visiblePage = customerViews.includes(page) ? "customers" : page;
   ["dashboard","customers","customerDetail","packages","payments","invoices","network","tickets","expenses","reports","settings"]
-    .forEach(p => $(p + "Page").classList.toggle("hidden", p !== page));
+    .forEach(p => $(p + "Page").classList.toggle("hidden", p !== visiblePage));
 
   document.querySelectorAll(".nav button").forEach(b =>
     b.classList.toggle("active", b.dataset.page === page)
@@ -52,7 +53,10 @@ function showPage(page) {
 
   $("pageTitle").textContent = ({
     dashboard:"Dashboard / ড্যাশবোর্ড",
-    customers:"Customers / গ্রাহক",
+    customers:"Total Customers / মোট গ্রাহক",
+    activeCustomers:"Active Customers / চালু গ্রাহক",
+    dueCustomers:"Due Customers / বকেয়া গ্রাহক",
+    paidCustomers:"Paid Customers / পরিশোধিত গ্রাহক",
     customerDetail:"Customer Information / গ্রাহকের তথ্য",
     packages:"Packages / প্যাকেজ",
     payments:"Payments / পেমেন্ট",
@@ -101,8 +105,9 @@ function openCustomerList(filter) {
   customerListFilter = filter;
   activeBillFilter = filter === "active" ? "paid" : filter === "due" ? "due" : "all";
   $("customerSearch").value = "";
+  const page = filter === "active" ? "activeCustomers" : filter === "due" ? "dueCustomers" : filter === "paid" ? "paidCustomers" : "customers";
+  showPage(page);
   renderCustomerRows();
-  showPage("customers");
 }
 document.querySelectorAll("[data-dashboard-filter]").forEach(card => {
   const open = () => openCustomerList(card.dataset.dashboardFilter);
@@ -684,9 +689,10 @@ let dueReminderChannel = "whatsapp";
 let dueReminderIndex = 0;
 
 function renderCustomerRows() {
+  const isSeparateCustomerPage = ["activeCustomers","dueCustomers","paidCustomers"].includes(currentPage);
   const activeFilters = $("activeBillFilters");
   if (activeFilters) {
-    activeFilters.classList.remove("hidden");
+    activeFilters.classList.toggle("hidden", isSeparateCustomerPage);
     const activeCount = customers.filter(c => c.status === "active").length;
     const dueCount = customers.filter(customerHasDue).length;
     const paidCount = customers.filter(c => c.status === "active" && !customerHasDue(c)).length;
@@ -702,8 +708,8 @@ function renderCustomerRows() {
     });
   }
   const customerSections = document.querySelectorAll("#customersPage > .section");
-  if (customerSections[1]) customerSections[1].classList.toggle("hidden", customerListFilter === "due");
-  if (customerSections[2]) customerSections[2].classList.toggle("hidden", customerListFilter === "due");
+  if (customerSections[1]) customerSections[1].classList.toggle("hidden", currentPage !== "customers" || customerListFilter === "due");
+  if (customerSections[2]) customerSections[2].classList.toggle("hidden", currentPage !== "customers" || customerListFilter === "due");
   const bulkReminderButton = $("sendAllDueReminder");
   if (bulkReminderButton) {
     bulkReminderButton.classList.toggle("hidden", customerListFilter !== "due");
@@ -751,9 +757,9 @@ function renderCustomerRows() {
       ? filtered.map(customerRow).join("")
       : '<tr><td colspan="7">এই তালিকায় কোনো গ্রাহক পাওয়া যায়নি।</td></tr>';
   }
-  const labels = {all:"সব গ্রাহক",active:"Active Customer / চালু গ্রাহক",paid:"Paid Customer / বিল পরিশোধিত গ্রাহক",due:"Due Customer / বকেয়া গ্রাহক",collected:"পেমেন্ট করা গ্রাহক"};
+  const labels = {all:"Total Customers / মোট গ্রাহক",active:"Active Customers / চালু গ্রাহক",paid:"Paid Customers / পরিশোধিত গ্রাহক",due:"Due Customers / বকেয়া গ্রাহক",collected:"পেমেন্ট করা গ্রাহক"};
   const heading = document.querySelector("#customersPage .section h2");
-  if (heading) heading.textContent = "Customer List / " + labels[customerListFilter] + " (" + (customerListFilter === "due" ? filtered.reduce((n,c)=>n + (invoices.some(i=>String(i.customer_id)===String(c.id)) ? invoices.filter(i=>String(i.customer_id)===String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount))>0).length : 1),0) : filtered.length) + ")";
+  if (heading) heading.textContent = labels[customerListFilter] + " (" + (customerListFilter === "due" ? filtered.reduce((n,c)=>n + (invoices.some(i=>String(i.customer_id)===String(c.id)) ? invoices.filter(i=>String(i.customer_id)===String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount))>0).length : 1),0) : filtered.length) + ")";
 }
 $("customerRows").addEventListener("click", async e => {
   const imoButton = e.target.closest(".imoReminderBtn");
@@ -889,8 +895,9 @@ function setActiveBillFilter(filter) {
   customerListFilter = ["active","due","paid"].includes(filter) ? filter : "all";
   activeBillFilter = filter;
   $("customerSearch").value = "";
+  const page = filter === "active" ? "activeCustomers" : filter === "due" ? "dueCustomers" : filter === "paid" ? "paidCustomers" : "customers";
+  showPage(page);
   renderCustomerRows();
-  showPage("customers");
 }
 $("activeActiveFilter").onclick = () => setActiveBillFilter("active");
 $("activeDueFilter").onclick = () => setActiveBillFilter("due");
