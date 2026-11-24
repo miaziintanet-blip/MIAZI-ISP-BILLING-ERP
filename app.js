@@ -807,14 +807,7 @@ $("customerRows").addEventListener("click", async e => {
     const customer = customers.find(c => String(c.id) === String(customerId));
     if (!customer) return alert("গ্রাহক পাওয়া যায়নি।");
     const openInvoices = invoices.filter(i => String(i.customer_id) === String(customerId));
-    const hasExistingDue = Number(customer.due_amount || 0) > 0 ||
-      openInvoices.some(i => Number(i.amount) - Number(i.paid_amount) > 0);
-    const row = quickButton.closest("tr[data-customer-id]");
-    if (hasExistingDue) {
-      if (row) row.click();
-      return;
-    }
-    const latestInvoice = openInvoices.sort((a,b) =>
+    const latestInvoice = [...openInvoices].sort((a,b) =>
       String(b.billing_month).localeCompare(String(a.billing_month))
     )[0];
     if (!latestInvoice) {
