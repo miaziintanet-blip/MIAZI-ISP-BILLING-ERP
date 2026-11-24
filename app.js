@@ -335,10 +335,54 @@ $("customerRows").addEventListener("click", e => {
         <div><label>বকেয়া মাস / Due Month</label><input name="due_month" type="month" value="${esc(c.due_month || "")}" ${Number(c.due_amount || 0) > 0 ? "required" : ""}></div>
         <div style="align-self:end"><button type="submit">বকেয়া সংরক্ষণ করুন</button></div>
       </form>
+    </div>
+    <div class="section" style="margin-top:16px">
+      <h2>মাসভিত্তিক Paid / Due সংশোধন</h2>
+      <p class="muted">ভুল মাসের বিল ঠিক করুন। Paid করলে ওই মাসের বিল সম্পূর্ণ পরিশোধিত হবে, Due করলে ওই মাসের পরিশোধিত অঙ্ক 0 হবে। এটি পেমেন্টের ইতিহাস মুছবে না।</p>
+      <div class="tablewrap">
+        <table><thead><tr><th>মাস</th><th>বিল</th><th>জমা</th><th>বকেয়া</th><th>সংশোধন</th></tr></thead>
+        <tbody>
+          ${invoices.filter(i => String(i.customer_id) === String(c.id)).map(i => {
+            const due = Math.max(0, Number(i.amount) - Number(i.paid_amount));
+            const status = due <= 0 ? "paid" : "due";
+            return `<tr><td>${esc(formatBillingMonth(i.billing_month))}</td><td>${money(i.amount)}</td><td>${money(i.paid_amount)}</td><td>${money(due)}</td>
+              <td><form class="invoiceCorrectionForm" data-invoice-id="${esc(i.id)}" style="display:flex;gap:6px;min-width:190px">
+                <select name="bill_status" aria-label="বিলের অবস্থা"><option value="due" ${status==="due"?"selected":""}>Due / বকেয়া</option><option value="paid" ${status==="paid"?"selected":""}>Paid / পরিশোধিত</option></select>
+                <button type="submit">Save</button>
+              </form></td></tr>`;
+          }).join("") || '<tr><td colspan="5">এই গ্রাহকের কোনো মাসিক বিল তৈরি হয়নি।</td></tr>'}
+        </tbody></table>
+      </div>
     </div>`;
   showPage("customerDetail");
 });
 $("customerDetailContent").addEventListener("submit", async e => {
+  const correctionForm = e.target.closest(".invoiceCorrectionForm");
+  if (correctionForm) {
+    e.preventDefault();
+    const invoiceId = correctionForm.dataset.invoiceId;
+    const invoice = invoices.find(i => String(i.id) === String(invoiceId));
+    if (!invoice) return alert("বিলটি পাওয়া যায়নি।");
+    const nextStatus = new FormData(correctionForm).get("bill_status");
+    if (!["paid","due"].includes(nextStatus)) return;
+    const isPaid = nextStatus === "paid";
+    const question = isPaid
+      ? "এই মাসের বিল সম্পূর্ণ Paid করবেন?"
+      : "এই মাসের বিলের জমা 0 করে Due করবেন?";
+    if (!confirm(question + "\\nপেমেন্টের ইতিহাস অপরিবর্তিত থাকবে।")) return;
+    const {error} = await sb.from("invoices")
+      .update({paid_amount:isPaid ? Number(invoice.amount) : 0, status:isPaid ? "paid" : "unpaid"})
+      .eq("id", invoiceId);
+    if (error) return alert("বিলের অবস্থা পরিবর্তন হয়নি: " + error.message);
+    await loadAll();
+    const customer = customers.find(c => String(c.id) === String(invoice.customer_id));
+    if (customer) {
+      const row = document.querySelector(`.customer-row[data-customer-id="${CSS.escape(String(customer.id))}"]`);
+      if (row) row.click();
+    }
+    alert("বিলের অবস্থা সংশোধন হয়েছে।");
+    return;
+  }
   if (e.target.id !== "openingDueForm") return;
   e.preventDefault();
   const customerId = e.target.dataset.customerId;
