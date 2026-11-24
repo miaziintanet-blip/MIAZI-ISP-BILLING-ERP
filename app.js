@@ -104,22 +104,6 @@ function openCustomerList(filter) {
   renderCustomerRows();
   showPage("customers");
 }
-function openPaidCustomers() {
-  customerListFilter = "paid";
-  activeBillFilter = "paid";
-  $("customerSearch").value = "";
-  renderCustomerRows();
-  showPage("customers");
-}
-function openDueCustomers() {
-  customerListFilter = "due";
-  activeBillFilter = "due";
-  $("customerSearch").value = "";
-  renderCustomerRows();
-  showPage("customers");
-}
-document.querySelectorAll('[data-action="paid-customers"]').forEach(b => b.onclick = openPaidCustomers);
-document.querySelectorAll('[data-action="due-customers"]').forEach(b => b.onclick = openDueCustomers);
 document.querySelectorAll("[data-dashboard-filter]").forEach(card => {
   const open = () => openCustomerList(card.dataset.dashboardFilter);
   card.addEventListener("click", open);
@@ -630,13 +614,21 @@ function formatBillingMonth(value) {
 }
 function renderCustomerRows() {
   const activeFilters = $("activeBillFilters");
-  if (activeFilters) activeFilters.classList.add("hidden");
+  if (activeFilters) {
+    activeFilters.classList.remove("hidden");
+    [["activePaidFilter","paid"],["activeDueFilter","due"],["activeAllFilter","all"]].forEach(([id,value]) => {
+      const button = $(id);
+      button.classList.toggle("active", customerListFilter === value);
+      button.setAttribute("aria-pressed", customerListFilter === value ? "true" : "false");
+    });
+  }
   const customerSections = document.querySelectorAll("#customersPage > .section");
   if (customerSections[1]) customerSections[1].classList.toggle("hidden", customerListFilter === "due");
   if (customerSections[2]) customerSections[2].classList.toggle("hidden", customerListFilter === "due");
   const q = ($("customerSearch").value || "").toLowerCase().trim();
   const filtered = customers.filter(c => {
     if (customerListFilter === "active" && c.status !== "active") return false;
+    if (customerListFilter === "paid" && (c.status !== "active" || customerHasDue(c))) return false;
     if (customerListFilter === "active" && activeBillFilter === "due" && !customerHasDue(c)) return false;
     if (customerListFilter === "active" && activeBillFilter === "paid" && (c.status !== "active" || customerHasDue(c))) return false;
     if (customerListFilter === "paid" && (c.status !== "active" || customerHasDue(c))) return false;
@@ -682,9 +674,7 @@ function renderCustomerRows() {
 $("customerSearch").oninput = renderCustomerRows;
 
 function setActiveBillFilter(filter) {
-  if (customerListFilter !== "all" && customerListFilter !== "active") {
-    customerListFilter = "all";
-  }
+  customerListFilter = filter === "due" ? "due" : filter === "paid" ? "paid" : "all";
   activeBillFilter = filter;
   $("customerSearch").value = "";
   renderCustomerRows();
