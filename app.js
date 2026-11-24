@@ -805,52 +805,100 @@ async function handleQuickBillClick(event, quickButton) {
   const customerId = quickButton.dataset.customerId;
   const customer = customers.find(c => String(c.id) === String(customerId));
   if (!customer) return alert("গ্রাহক পাওয়া যায়নি।");
-  const openInvoices = invoices.filter(i => String(i.customer_id) === String(customerId));
-  const latestInvoice = [...openInvoices].sort((a,b) =>
-    String(b.billing_month).localeCompare(String(a.billing_month))
-  )[0];
-  if (!latestInvoice) {
-    alert("এই গ্রাহকের কোনো বিল তৈরি হয়নি। আগে Invoices থেকে মাসের বিল তৈরি করুন।");
-    return false;
+
+  // Use the month currently selected in Invoices.
+  const selectedMonth = $("billingMonth").value;
+  if (!selectedMonth) return alert("আগে Invoices থেকে বিলের মাস নির্বাচন করুন।");
+  const billingDate = selectedMonth + "-01";
+
+  let invoice = invoices.find(i =>
+    String(i.customer_id) === String(customerId) &&
+    String(i.billing_month).slice(0, 10) === billingDate
+  );
+
+  // Check the database as well, since the local invoice list may be limited.
+  if (!invoice) {
+    const existing = await sb.from("invoices")
+      .select("*")
+      .eq("customer_id", customerId)
+      .eq("billing_month", billingDate)
+      .maybeSingle();
+    if (existing.error) return alert("আগের বিল খুঁজে পাওয়া যায়নি: " + existing.error.message);
+    invoice = existing.data;
   }
+
+  // Create this customer's invoice only when it does not already exist.
+  if (!invoice) {
+    const invoiceNo = "MZ-" + selectedMonth.replace("-", "") + "-" + String(customer.id).replace(/-/g, "").slice(-10);
+    const created = await sb.from("invoices").insert({
+      customer_id: customer.id,
+      invoice_no: invoiceNo,
+      billing_month: billingDate,
+      amount: Number(customer.monthly_fee || 0),
+      paid_amount: 0,
+      status: "unpaid"
+    }).select("*").single();
+
+    if (created.error) {
+      // If another request created it at the same time, retrieve that invoice.
+      const retry = await sb.from("invoices")
+        .select("*")
+        .eq("customer_id", customerId)
+        .eq("billing_month", billingDate)
+        .maybeSingle();
+      if (retry.error || !retry.data) {
+        return alert("এই মাসের বিল তৈরি হয়নি: " + created.error.message);
+      }
+      invoice = retry.data;
+    } else {
+      invoice = created.data;
+    }
+  }
+
   const markPaid = quickButton.dataset.billAction === "paid";
-  const oldPaidAmount = Number(latestInvoice.paid_amount || 0);
-  const billAmount = Number(latestInvoice.amount || 0);
+  const oldPaidAmount = Number(invoice.paid_amount || 0);
+  const billAmount = Number(invoice.amount || 0);
   if (markPaid && oldPaidAmount >= billAmount) {
-    alert("সর্বশেষ মাসের বিল ইতিমধ্যে Paid আছে。");
-    return false;
+    await loadAll();
+    return alert(selectedMonth + " মাসের বিল ইতিমধ্যে Paid আছে।");
   }
   if (!markPaid && oldPaidAmount <= 0) {
-    alert("সর্বশেষ মাসের বিল ইতিমধ্যে Due আছে।");
-    return false;
+    await loadAll();
+    return alert(selectedMonth + " মাসের বিল ইতিমধ্যে Due আছে।");
   }
+
   const result = await sb.from("invoices").update({
     paid_amount: markPaid ? billAmount : 0,
     status: markPaid ? "paid" : "unpaid"
-  }).eq("id", latestInvoice.id);
+  }).eq("id", invoice.id);
   if (result.error) {
-    alert("বিলের অবস্থা পরিবর্তন হয়নি: " + result.error.message);
-    return false;
+    return alert("বিলের অবস্থা পরিবর্তন হয়নি: " + result.error.message);
   }
+
   if (markPaid) {
     const remaining = Math.max(0, billAmount - oldPaidAmount);
-    const payment = await sb.from("payments").insert({
-      customer_id: customerId,
-      amount: remaining,
-      method: "Cash",
-      note: "Paid directly from Total Customers"
-    });
-    if (payment.error) {
-      await sb.from("invoices").update({
-        paid_amount: oldPaidAmount,
-        status: oldPaidAmount >= billAmount ? "paid" : "unpaid"
-      }).eq("id", latestInvoice.id);
-      alert("পেমেন্ট সংরক্ষণ হয়নি, তাই বিলের আগের অবস্থা ফিরিয়ে দেওয়া হয়েছে: " + payment.error.message);
-      return false;
+    if (remaining > 0) {
+      const payment = await sb.from("payments").insert({
+        customer_id: customerId,
+        amount: remaining,
+        method: "Cash",
+        note: "Paid directly from Total Customers for " + selectedMonth
+      });
+      if (payment.error) {
+        await sb.from("invoices").update({
+          paid_amount: oldPaidAmount,
+          status: oldPaidAmount >= billAmount ? "paid" : "unpaid"
+        }).eq("id", invoice.id);
+        alert("পেমেন্ট সংরক্ষণ হয়নি, তাই বিলের আগের অবস্থা ফিরিয়ে দেওয়া হয়েছে: " + payment.error.message);
+        return false;
+      }
     }
   }
+
   await loadAll();
-  alert(markPaid ? "সর্বশেষ তৈরি বিল Paid হয়েছে।" : "সর্বশেষ তৈরি বিল Due হয়েছে। পেমেন্টের পুরোনো ইতিহাস মুছে ফেলা হয়নি।");
+  alert(markPaid
+    ? selectedMonth + " মাসের বিল তৈরি করে Paid করা হয়েছে।"
+    : selectedMonth + " মাসের বিল তৈরি করে Due করা হয়েছে। পেমেন্টের পুরোনো ইতিহাস মুছে ফেলা হয়নি।");
   return false;
 }
 
