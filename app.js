@@ -802,7 +802,8 @@ function renderCustomerRows() {
 $("customerRows").addEventListener("click", async e => {
   const quickButton = e.target.closest(".quickBillAction");
   if (quickButton) {
-    e.stopPropagation();
+    e.preventDefault();
+    e.stopImmediatePropagation();
     const customerId = quickButton.dataset.customerId;
     const customer = customers.find(c => String(c.id) === String(customerId));
     if (!customer) return alert("গ্রাহক পাওয়া যায়নি।");
