@@ -104,6 +104,22 @@ function openCustomerList(filter) {
   renderCustomerRows();
   showPage("customers");
 }
+function openPaidCustomers() {
+  customerListFilter = "paid";
+  activeBillFilter = "paid";
+  $("customerSearch").value = "";
+  renderCustomerRows();
+  showPage("customers");
+}
+function openDueCustomers() {
+  customerListFilter = "due";
+  activeBillFilter = "due";
+  $("customerSearch").value = "";
+  renderCustomerRows();
+  showPage("customers");
+}
+document.querySelectorAll('[data-action="paid-customers"]').forEach(b => b.onclick = openPaidCustomers);
+document.querySelectorAll('[data-action="due-customers"]').forEach(b => b.onclick = openDueCustomers);
 document.querySelectorAll("[data-dashboard-filter]").forEach(card => {
   const open = () => openCustomerList(card.dataset.dashboardFilter);
   card.addEventListener("click", open);
@@ -240,8 +256,8 @@ function customerRow(c) {
     <td>${esc(c.mac_address || "—")}</td>
     <td>${esc(c.connection_date || "—")}</td>
     <td>${money(c.monthly_fee)}</td>
-    <td><span class="pill ${customerListFilter === "active" ? (customerHasDue(c) ? "danger" : "") : (c.status === "active" ? "" : "danger")}">
-      ${customerListFilter === "active" ? (customerHasDue(c) ? "Due / বকেয়া" : "Paid / পরিশোধিত") : esc(c.status)}
+    <td><span class="pill ${(customerListFilter === "active" || customerListFilter === "paid") ? (customerHasDue(c) ? "danger" : "") : (c.status === "active" ? "" : "danger")}">
+      ${(customerListFilter === "active" || customerListFilter === "paid") ? (customerHasDue(c) ? "Due / বকেয়া" : "Paid / পরিশোধিত") : esc(c.status)}
     </span></td>
   </tr>`;
 }
@@ -614,14 +630,7 @@ function formatBillingMonth(value) {
 }
 function renderCustomerRows() {
   const activeFilters = $("activeBillFilters");
-  if (activeFilters) {
-    activeFilters.classList.remove("hidden");
-    [["activePaidFilter","paid"],["activeDueFilter","due"],["activeAllFilter","all"]].forEach(([id,value]) => {
-      const button = $(id);
-      button.classList.toggle("active", activeBillFilter === value);
-      button.setAttribute("aria-pressed", activeBillFilter === value ? "true" : "false");
-    });
-  }
+  if (activeFilters) activeFilters.classList.add("hidden");
   const customerSections = document.querySelectorAll("#customersPage > .section");
   if (customerSections[1]) customerSections[1].classList.toggle("hidden", customerListFilter === "due");
   if (customerSections[2]) customerSections[2].classList.toggle("hidden", customerListFilter === "due");
@@ -630,8 +639,7 @@ function renderCustomerRows() {
     if (customerListFilter === "active" && c.status !== "active") return false;
     if (customerListFilter === "active" && activeBillFilter === "due" && !customerHasDue(c)) return false;
     if (customerListFilter === "active" && activeBillFilter === "paid" && (c.status !== "active" || customerHasDue(c))) return false;
-    if (customerListFilter === "all" && activeBillFilter === "due" && !customerHasDue(c)) return false;
-    if (customerListFilter === "all" && activeBillFilter === "paid" && (c.status !== "active" || customerHasDue(c))) return false;
+    if (customerListFilter === "paid" && (c.status !== "active" || customerHasDue(c))) return false;
     if (customerListFilter === "due" && !customerHasDue(c)) return false;
     if (customerListFilter === "collected" && !customerHasCollected(c)) return false;
     return [c.name,c.phone,c.username,c.mac_address,c.connection_date,c.customer_code,c.address]
@@ -667,7 +675,7 @@ function renderCustomerRows() {
       ? filtered.map(customerRow).join("")
       : '<tr><td colspan="7">এই তালিকায় কোনো গ্রাহক পাওয়া যায়নি।</td></tr>';
   }
-  const labels = {all:"সব গ্রাহক",active:"চালু গ্রাহক",due:"বকেয়া গ্রাহক",collected:"পেমেন্ট করা গ্রাহক"};
+  const labels = {all:"সব গ্রাহক",active:"চালু গ্রাহক",paid:"Paid / বিল পরিশোধ করা Active গ্রাহক",due:"Due / বকেয়া গ্রাহক",collected:"পেমেন্ট করা গ্রাহক"};
   const heading = document.querySelector("#customersPage .section h2");
   if (heading) heading.textContent = "Customer List / " + labels[customerListFilter] + " (" + (customerListFilter === "due" ? filtered.reduce((n,c)=>n + (invoices.some(i=>String(i.customer_id)===String(c.id)) ? invoices.filter(i=>String(i.customer_id)===String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount))>0).length : 1),0) : filtered.length) + ")";
 }
