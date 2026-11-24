@@ -620,7 +620,7 @@ function renderCustomerRows() {
   const activeFilters = $("activeBillFilters");
   if (activeFilters) {
     activeFilters.classList.remove("hidden");
-    [["activePaidFilter","paid"],["activeDueFilter","due"],["activeAllFilter","all"]].forEach(([id,value]) => {
+    [["activeActiveFilter","active"],["activeDueFilter","due"],["activePaidFilter","paid"]].forEach(([id,value]) => {
       const button = $(id);
       button.classList.toggle("active", customerListFilter === value);
       button.setAttribute("aria-pressed", customerListFilter === value ? "true" : "false");
@@ -632,9 +632,6 @@ function renderCustomerRows() {
   const q = ($("customerSearch").value || "").toLowerCase().trim();
   const filtered = customers.filter(c => {
     if (customerListFilter === "active" && c.status !== "active") return false;
-    if (customerListFilter === "paid" && (c.status !== "active" || customerHasDue(c))) return false;
-    if (customerListFilter === "active" && activeBillFilter === "due" && !customerHasDue(c)) return false;
-    if (customerListFilter === "active" && activeBillFilter === "paid" && (c.status !== "active" || customerHasDue(c))) return false;
     if (customerListFilter === "paid" && (c.status !== "active" || customerHasDue(c))) return false;
     if (customerListFilter === "due" && !customerHasDue(c)) return false;
     if (customerListFilter === "collected" && !customerHasCollected(c)) return false;
@@ -671,7 +668,7 @@ function renderCustomerRows() {
       ? filtered.map(customerRow).join("")
       : '<tr><td colspan="7">এই তালিকায় কোনো গ্রাহক পাওয়া যায়নি।</td></tr>';
   }
-  const labels = {all:"সব গ্রাহক",active:"চালু গ্রাহক",paid:"Paid / বিল পরিশোধ করা Active গ্রাহক",due:"Due / বকেয়া গ্রাহক",collected:"পেমেন্ট করা গ্রাহক"};
+  const labels = {all:"সব গ্রাহক",active:"Active Customer / চালু গ্রাহক",paid:"Paid Customer / বিল পরিশোধিত গ্রাহক",due:"Due Customer / বকেয়া গ্রাহক",collected:"পেমেন্ট করা গ্রাহক"};
   const heading = document.querySelector("#customersPage .section h2");
   if (heading) heading.textContent = "Customer List / " + labels[customerListFilter] + " (" + (customerListFilter === "due" ? filtered.reduce((n,c)=>n + (invoices.some(i=>String(i.customer_id)===String(c.id)) ? invoices.filter(i=>String(i.customer_id)===String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount))>0).length : 1),0) : filtered.length) + ")";
 }
@@ -737,15 +734,15 @@ $("customerRows").addEventListener("click", async e => {
 $("customerSearch").oninput = renderCustomerRows;
 
 function setActiveBillFilter(filter) {
-  customerListFilter = filter === "due" ? "due" : filter === "paid" ? "paid" : "all";
+  customerListFilter = ["active","due","paid"].includes(filter) ? filter : "all";
   activeBillFilter = filter;
   $("customerSearch").value = "";
   renderCustomerRows();
   showPage("customers");
 }
-$("activePaidFilter").onclick = () => setActiveBillFilter("paid");
+$("activeActiveFilter").onclick = () => setActiveBillFilter("active");
 $("activeDueFilter").onclick = () => setActiveBillFilter("due");
-$("activeAllFilter").onclick = () => setActiveBillFilter("all");
+$("activePaidFilter").onclick = () => setActiveBillFilter("paid");
 
 
 // NETWORK, BILLING, SUPPORT AND EXPENSES
