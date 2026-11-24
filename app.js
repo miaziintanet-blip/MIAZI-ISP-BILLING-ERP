@@ -72,7 +72,19 @@ function showPage(page) {
 }
 
 document.querySelectorAll("[data-page]").forEach(b =>
-  b.onclick = () => showPage(b.dataset.page)
+  b.onclick = () => {
+    const page = b.dataset.page;
+    const customerPageFilters = {customers:"all",activeCustomers:"active",dueCustomers:"due",paidCustomers:"paid"};
+    if (Object.prototype.hasOwnProperty.call(customerPageFilters, page)) {
+      customerListFilter = customerPageFilters[page];
+      activeBillFilter = customerListFilter;
+      $("customerSearch").value = "";
+      showPage(page);
+      renderCustomerRows();
+    } else {
+      showPage(page);
+    }
+  }
 );
 
 document.querySelectorAll("[data-go]").forEach(b =>
