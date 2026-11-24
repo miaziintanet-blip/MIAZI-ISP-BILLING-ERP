@@ -687,8 +687,16 @@ function renderCustomerRows() {
   const activeFilters = $("activeBillFilters");
   if (activeFilters) {
     activeFilters.classList.remove("hidden");
-    [["activeActiveFilter","active"],["activeDueFilter","due"],["activePaidFilter","paid"]].forEach(([id,value]) => {
+    const activeCount = customers.filter(c => c.status === "active").length;
+    const dueCount = customers.filter(customerHasDue).length;
+    const paidCount = customers.filter(c => c.status === "active" && !customerHasDue(c)).length;
+    [
+      ["activeActiveFilter","active","Active / চালু (" + activeCount + ")"],
+      ["activeDueFilter","due","Due / বকেয়া (" + dueCount + ")"],
+      ["activePaidFilter","paid","Paid / পরিশোধিত (" + paidCount + ")"]
+    ].forEach(([id,value,label]) => {
       const button = $(id);
+      button.textContent = label;
       button.classList.toggle("active", customerListFilter === value);
       button.setAttribute("aria-pressed", customerListFilter === value ? "true" : "false");
     });
