@@ -147,7 +147,7 @@ async function loadPayments() {
   const r = await sb.from("payments")
     .select("id,amount,method,note,paid_at,customers(name)")
     .order("paid_at", { ascending: false })
-    .limit(30);
+    .limit(1000);
 
   if (r.error) return alert(r.error.message);
   payments = r.data || [];
@@ -505,7 +505,7 @@ $("generateBillsBtn").onclick = async () => {
   if (!active.length) return alert("কোনো Active customer নেই।");
   if (!confirm(month + " মাসের " + active.length + " জন Active customer-এর বিল তৈরি করবেন?")) return;
   const rows = active.map(c => ({
-    customer_id:c.id, invoice_no:"MZ-"+month.replace("-","")+"-"+String(c.customer_code || c.id).replace(/-/g,"").slice(-10),
+    customer_id:c.id, invoice_no:"MZ-"+month.replace("-","")+"-"+String(c.id).replace(/-/g,"").slice(-10),
     billing_month:billDate, amount:Number(c.monthly_fee || 0), paid_amount:0, status:"unpaid"
   }));
   const {data,error} = await sb.from("invoices").upsert(rows,{onConflict:"customer_id,billing_month",ignoreDuplicates:true}).select("id");
