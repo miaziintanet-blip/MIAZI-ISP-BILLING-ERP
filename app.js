@@ -74,6 +74,15 @@ document.querySelectorAll("[data-go]").forEach(b =>
   b.onclick = () => showPage(b.dataset.go)
 );
 
+document.querySelectorAll('[data-action="add-customer"]').forEach(b => {
+  b.onclick = () => {
+    showPage("customers");
+    const form = $("customerForm");
+    form.scrollIntoView({behavior:"smooth", block:"start"});
+    form.querySelector('[name="name"]').focus({preventScroll:true});
+  };
+});
+
 function openCustomerList(filter) {
   customerListFilter = filter;
   $("customerSearch").value = "";
