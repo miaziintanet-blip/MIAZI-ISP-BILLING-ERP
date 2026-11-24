@@ -4,7 +4,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_DbGYxusmvOLwlLzEC8D4OQ_KX9o_Srj";
 
 let sb = null;
 let currentPage = "dashboard";
-let customers = [], packages = [], payments = [];
+let customers = [], packages = [], payments = [], invoices = [], pops = [], areas = [], boxes = [], tickets = [], expenses = [];
 let lang = "both";
 let importRows = [], importReport = [];
 
@@ -41,7 +41,7 @@ function setConnectionDateDefault() {
 function showPage(page) {
   currentPage = page;
 
-  ["dashboard","customers","customerDetail","packages","payments","reports","settings"]
+  ["dashboard","customers","customerDetail","packages","payments","invoices","network","tickets","expenses","reports","settings"]
     .forEach(p => $(p + "Page").classList.toggle("hidden", p !== page));
 
   document.querySelectorAll(".nav button").forEach(b =>
@@ -54,6 +54,10 @@ function showPage(page) {
     customerDetail:"Customer Information / গ্রাহকের তথ্য",
     packages:"Packages / প্যাকেজ",
     payments:"Payments / পেমেন্ট",
+    invoices:"Invoices / বিল",
+    network:"POP / Area / Box",
+    tickets:"Support Tickets",
+    expenses:"Expenses / খরচ",
     reports:"Reports / রিপোর্ট",
     settings:"Settings / সেটিংস"
   })[page];
@@ -112,7 +116,11 @@ async function loadAll() {
   await Promise.all([
     loadCustomers(),
     loadPackages(),
-    loadPayments()
+    loadPayments(),
+    loadInvoices(),
+    loadNetwork(),
+    loadTickets(),
+    loadExpenses()
   ]);
   render();
 }
@@ -145,6 +153,31 @@ async function loadPayments() {
   payments = r.data || [];
 }
 
+async function loadInvoices() {
+  const r = await sb.from("invoices").select("*,customers(name,phone)").order("billing_month", {ascending:false}).limit(500);
+  if (r.error) return alert("Invoice: " + r.error.message);
+  invoices = r.data || [];
+}
+async function loadNetwork() {
+  const [p,a,b] = await Promise.all([
+    sb.from("pops").select("*").order("name"),
+    sb.from("areas").select("*,pops(name)").order("name"),
+    sb.from("boxes").select("*,pops(name),areas(name)").order("name")
+  ]);
+  if (p.error || a.error || b.error) return alert("POP/Area/Box: " + (p.error || a.error || b.error).message);
+  pops = p.data || []; areas = a.data || []; boxes = b.data || [];
+}
+async function loadTickets() {
+  const r = await sb.from("tickets").select("*,customers(name,phone)").order("opened_at", {ascending:false}).limit(300);
+  if (r.error) return alert("Tickets: " + r.error.message);
+  tickets = r.data || [];
+}
+async function loadExpenses() {
+  const r = await sb.from("expenses").select("*").order("expense_date", {ascending:false}).limit(500);
+  if (r.error) return alert("Expenses: " + r.error.message);
+  expenses = r.data || [];
+}
+
 function customerRow(c) {
   return `<tr data-customer-id="${esc(c.id)}" class="customer-row" style="cursor:pointer">
     <td>${esc(c.name)}</td>
@@ -165,8 +198,8 @@ function render() {
   $("activeCustomers").textContent =
     customers.filter(c => c.status === "active").length;
 
-  $("dueCustomers").textContent =
-    customers.filter(c => Number(c.due_amount || 0) > 0).length;
+  const invoiceDue = invoices.filter(i => ["unpaid","partial"].includes(i.status)).reduce((s,i) => s + Math.max(0,Number(i.amount)-Number(i.paid_amount)),0);
+  $("dueCustomers").textContent = invoices.length ? invoices.filter(i => ["unpaid","partial"].includes(i.status)).length : customers.filter(c => Number(c.due_amount || 0) > 0).length;
 
   $("collected").textContent =
     money(payments.reduce((a, p) => a + Number(p.amount), 0));
@@ -177,11 +210,32 @@ function render() {
       `<option value="${p.id}">${esc(p.name)} — ${money(p.price)}</option>`
     ).join("");
 
-  $("paymentCustomer").innerHTML =
-    '<option value="">Select customer</option>' +
-    customers.map(c =>
-      `<option value="${c.id}">${esc(c.name)} (${esc(c.phone)})</option>`
-    ).join("");
+  const customerOptions = '<option value="">Select customer</option>' + customers.map(c => `<option value="${c.id}">${esc(c.name)} (${esc(c.phone)})</option>`).join("");
+  $("paymentCustomer").innerHTML = customerOptions;
+  $("ticketCustomer").innerHTML = customerOptions;
+  const popOptions = '<option value="">Select POP</option>' + pops.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+  ["customerPop","areaPop","boxPop"].forEach(id => $(id).innerHTML = popOptions);
+  const areaOptions = '<option value="">Select Area</option>' + areas.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join("");
+  $("customerArea").innerHTML = areaOptions;
+  $("boxArea").innerHTML = areaOptions;
+  $("customerBox").innerHTML = '<option value="">Select Box</option>' + boxes.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join("");
+  $("popRows").innerHTML = pops.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.address)}</td><td>${esc(p.contact_person)}</td><td>${esc(p.phone)}</td></tr>`).join("");
+  $("areaRows").innerHTML = areas.map(a => `<tr><td>${esc(a.name)}</td><td>${esc(a.pops?.name || "—")}</td></tr>`).join("");
+  $("boxRows").innerHTML = boxes.map(b => `<tr><td>${esc(b.name)}</td><td>${esc(b.areas?.name || "—")}</td><td>${esc(b.pops?.name || "—")}</td><td>${esc(b.splitter_ratio)}</td><td>${esc(b.capacity)}</td></tr>`).join("");
+  const statusFilter = $("invoiceStatusFilter").value;
+  $("invoiceRows").innerHTML = invoices.filter(i => !statusFilter || i.status === statusFilter).map(i => {
+    const due = Math.max(0,Number(i.amount)-Number(i.paid_amount));
+    return `<tr><td>${esc(i.invoice_no)}</td><td>${esc(i.customers?.name || "—")}</td><td>${esc(String(i.billing_month).slice(0,7))}</td><td>${money(i.amount)}</td><td>${money(i.paid_amount)}</td><td>${money(due)}</td><td><span class="pill">${esc(i.status)}</span></td></tr>`;
+  }).join("");
+  $("ticketRows").innerHTML = tickets.map(t => `<tr><td>${new Date(t.opened_at).toLocaleDateString()}</td><td>${esc(t.customers?.name || "—")}</td><td>${esc(t.subject)}</td><td>${esc(t.priority)}</td><td>${esc(t.status)}</td><td><select data-ticket-id="${t.id}" class="ticketStatus"><option value="open" ${t.status==="open"?"selected":""}>Open</option><option value="in_progress" ${t.status==="in_progress"?"selected":""}>In progress</option><option value="resolved" ${t.status==="resolved"?"selected":""}>Resolved</option><option value="closed" ${t.status==="closed"?"selected":""}>Closed</option></select></td></tr>`).join("");
+  $("expenseRows").innerHTML = expenses.map(x => `<tr><td>${esc(x.expense_date)}</td><td>${esc(x.category)}</td><td>${esc(x.description)}</td><td>${money(x.amount)}</td><td>${esc(x.payment_method)}</td></tr>`).join("");
+  const totalDue = invoices.reduce((s,i) => s + Math.max(0,Number(i.amount)-Number(i.paid_amount)),0);
+  const totalExpenses = expenses.reduce((s,x) => s + Number(x.amount),0);
+  const totalPaid = payments.reduce((s,p) => s + Number(p.amount),0);
+  $("reportDue").textContent = money(totalDue);
+  $("reportPaid").textContent = money(totalPaid);
+  $("reportExpense").textContent = money(totalExpenses);
+  $("reportNet").textContent = money(totalPaid-totalExpenses);
 
   $("customerRows").innerHTML =
     customers.map(customerRow).join("");
@@ -343,6 +397,9 @@ $("customerForm").onsubmit = async e => {
   d.mac_address = d.mac_address || null;
   d.nid = d.nid || null;
   d.customer_code = d.customer_code || null;
+  d.email = d.email || null;
+  d.pop_id = d.pop_id || null; d.area_id = d.area_id || null; d.box_id = d.box_id || null;
+  d.bill_cycle = Number(d.bill_cycle || 1);
   d.import_key = makeImportKey(d);
 
   const { error } = await sb.from("customers").insert(d);
@@ -401,6 +458,59 @@ $("customerSearch").oninput = e => {
     .map(customerRow)
     .join("");
 };
+
+
+// NETWORK, BILLING, SUPPORT AND EXPENSES
+function formData(form) { return Object.fromEntries(new FormData(form)); }
+async function insertForm(formId, table, numericFields=[]) {
+  const form = $(formId); const d = formData(form);
+  numericFields.forEach(k => d[k] = d[k] === "" ? null : Number(d[k]));
+  ["pop_id","area_id","box_id","customer_id"].forEach(k => { if (d[k] === "") d[k] = null; });
+  const {error} = await sb.from(table).insert(d);
+  if (error) return alert(error.message);
+  form.reset();
+  if (formId === "expenseForm") $("expenseDate").value = todayISO();
+  await loadAll();
+  alert("Saved successfully / সংরক্ষণ হয়েছে");
+}
+$("popForm").onsubmit = e => { e.preventDefault(); insertForm("popForm","pops"); };
+$("areaForm").onsubmit = e => { e.preventDefault(); insertForm("areaForm","areas"); };
+$("boxForm").onsubmit = e => { e.preventDefault(); insertForm("boxForm","boxes",["capacity"]); };
+$("ticketForm").onsubmit = e => { e.preventDefault(); insertForm("ticketForm","tickets"); };
+$("expenseForm").onsubmit = e => { e.preventDefault(); insertForm("expenseForm","expenses",["amount"]); };
+$("generateBillsBtn").onclick = async () => {
+  const month = $("billingMonth").value;
+  if (!month) return alert("প্রথমে বিলের মাস নির্বাচন করুন।");
+  const billDate = month + "-01";
+  const active = customers.filter(c => c.status === "active");
+  if (!active.length) return alert("কোনো Active customer নেই।");
+  if (!confirm(month + " মাসের " + active.length + " জন Active customer-এর বিল তৈরি করবেন?")) return;
+  const rows = active.map(c => ({
+    customer_id:c.id, invoice_no:"MZ-"+month.replace("-","")+"-"+String(c.customer_code || c.id).replace(/-/g,"").slice(-10),
+    billing_month:billDate, amount:Number(c.monthly_fee || 0), paid_amount:0, status:"unpaid"
+  }));
+  const {data,error} = await sb.from("invoices").upsert(rows,{onConflict:"customer_id,billing_month",ignoreDuplicates:true}).select("id");
+  if (error) return alert(error.message);
+  await loadAll(); render();
+  alert("বিল তৈরির কাজ শেষ। নতুন তৈরি হয়েছে: " + (data?.length ?? 0) + " টি। আগে তৈরি থাকা বিল পুনরায় যোগ হয়নি।");
+};
+$("invoiceStatusFilter").onchange = render;
+$("ticketRows").addEventListener("change", async e => {
+  const sel = e.target.closest(".ticketStatus"); if (!sel) return;
+  const {error} = await sb.from("tickets").update({status:sel.value,closed_at:["resolved","closed"].includes(sel.value)?new Date().toISOString():null}).eq("id",sel.dataset.ticketId);
+  if (error) return alert(error.message);
+  await loadTickets(); render();
+});
+$("customerPop").addEventListener("change", e => {
+  const related = areas.filter(a => !a.pop_id || a.pop_id === e.target.value);
+  $("customerArea").innerHTML = '<option value="">Select Area</option>' + related.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("");
+});
+$("boxPop").addEventListener("change", e => {
+  const related = areas.filter(a => !a.pop_id || a.pop_id === e.target.value);
+  $("boxArea").innerHTML = '<option value="">Select Area</option>' + related.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("");
+});
+$("expenseDate").value = todayISO();
+$("billingMonth").value = todayISO().slice(0,7);
 
 // AUTO LOGIN SESSION
 (async () => {
