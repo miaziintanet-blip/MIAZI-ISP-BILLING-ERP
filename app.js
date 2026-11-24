@@ -855,51 +855,6 @@ async function handleQuickBillClick(event, quickButton) {
 }
 
 $("customerRows").addEventListener("click", async e => {
-  const quickButton = e.target.closest(".quickBillAction");
-  if (quickButton) {
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    const customerId = quickButton.dataset.customerId;
-    const customer = customers.find(c => String(c.id) === String(customerId));
-    if (!customer) return alert("গ্রাহক পাওয়া যায়নি।");
-    const openInvoices = invoices.filter(i => String(i.customer_id) === String(customerId));
-    const latestInvoice = [...openInvoices].sort((a,b) =>
-      String(b.billing_month).localeCompare(String(a.billing_month))
-    )[0];
-    if (!latestInvoice) {
-      alert("এই গ্রাহকের কোনো বিল তৈরি হয়নি। আগে Invoices থেকে মাসের বিল তৈরি করুন।");
-      return;
-    }
-    const markPaid = quickButton.dataset.billAction === "paid";
-    const oldPaidAmount = Number(latestInvoice.paid_amount || 0);
-    const billAmount = Number(latestInvoice.amount || 0);
-    if (markPaid && oldPaidAmount >= billAmount) return alert("সর্বশেষ মাসের বিল ইতিমধ্যে Paid আছে।");
-    if (!markPaid && oldPaidAmount <= 0) return alert("সর্বশেষ মাসের বিল ইতিমধ্যে Due আছে।");
-    const result = await sb.from("invoices").update({
-      paid_amount: markPaid ? billAmount : 0,
-      status: markPaid ? "paid" : "unpaid"
-    }).eq("id", latestInvoice.id);
-    if (result.error) return alert("বিলের অবস্থা পরিবর্তন হয়নি: " + result.error.message);
-    if (markPaid) {
-      const remaining = Math.max(0, billAmount - oldPaidAmount);
-      const payment = await sb.from("payments").insert({
-        customer_id: customerId,
-        amount: remaining,
-        method: "Cash",
-        note: "Paid directly from Total Customers"
-      });
-      if (payment.error) {
-        await sb.from("invoices").update({
-          paid_amount: oldPaidAmount,
-          status: oldPaidAmount >= billAmount ? "paid" : "unpaid"
-        }).eq("id", latestInvoice.id);
-        return alert("পেমেন্ট সংরক্ষণ হয়নি, তাই বিলের আগের অবস্থা ফিরিয়ে দেওয়া হয়েছে: " + payment.error.message);
-      }
-    }
-    await loadAll();
-    alert(markPaid ? "সর্বশেষ তৈরি বিল Paid হয়েছে।" : "সর্বশেষ তৈরি বিল Due হয়েছে। পেমেন্টের পুরোনো ইতিহাস মুছে ফেলা হয়নি।");
-    return;
-  }
   const imoButton = e.target.closest(".imoReminderBtn");
   if (imoButton) {
     e.stopPropagation();
