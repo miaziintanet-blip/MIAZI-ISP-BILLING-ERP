@@ -99,7 +99,7 @@ document.querySelectorAll('[data-action="import-customer"]').forEach(b => {
 
 function openCustomerList(filter) {
   customerListFilter = filter;
-  activeBillFilter = "all";
+  activeBillFilter = filter === "active" ? "paid" : filter === "due" ? "due" : "all";
   $("customerSearch").value = "";
   renderCustomerRows();
   showPage("customers");
@@ -250,12 +250,9 @@ function render() {
   $("totalCustomers").textContent = customers.length;
 
   $("activeCustomers").textContent =
-    customers.filter(c => c.status === "active").length;
+    customers.filter(c => c.status === "active" && !customerHasDue(c)).length;
 
-  $("dueCustomers").textContent = customers.filter(c =>
-    Number(c.due_amount || 0) > 0 ||
-    invoices.some(i => String(i.customer_id) === String(c.id) && Math.max(0,Number(i.amount)-Number(i.paid_amount)) > 0)
-  ).length;
+  $("dueCustomers").textContent = customers.filter(customerHasDue).length;
 
   $("collected").textContent =
     money(payments.reduce((a, p) => a + Number(p.amount), 0));
@@ -675,7 +672,7 @@ function renderCustomerRows() {
 $("customerSearch").oninput = renderCustomerRows;
 
 function setActiveBillFilter(filter) {
-  customerListFilter = "active";
+  customerListFilter = filter === "due" ? "due" : "active";
   activeBillFilter = filter;
   $("customerSearch").value = "";
   renderCustomerRows();
