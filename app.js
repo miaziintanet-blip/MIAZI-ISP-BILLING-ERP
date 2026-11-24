@@ -160,7 +160,7 @@ async function loadPackages() {
 
 async function loadPayments() {
   const r = await sb.from("payments")
-    .select("id,amount,method,note,paid_at,customers(name)")
+    .select("id,customer_id,amount,method,note,paid_at,customers(name)")
     .order("paid_at", { ascending: false })
     .limit(1000);
 
